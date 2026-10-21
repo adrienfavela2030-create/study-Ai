@@ -1,5 +1,7 @@
 (function(){
   function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
   function show(name){
     var pages = document.querySelectorAll(".page");
     for(var i=0;i<pages.length;i++) pages[i].classList.remove("on");
@@ -16,10 +18,9 @@
   $("go-notes").onclick = function(){ show("notes"); };
   $("go-learn").onclick = function(){ show("learn"); };
 
-  var hwMode = "help";
-  var noteStyle = "light";
   function setupPills(id, attr, cb){
     var root = $(id);
+    if(!root) return;
     var pills = root.getElementsByClassName("pill");
     for(var i=0;i<pills.length;i++){
       pills[i].onclick = (function(btn){
@@ -31,96 +32,251 @@
       })(pills[i]);
     }
   }
-  setupPills("hw-modes", "data-m", function(v){ hwMode = v; });
-  setupPills("note-modes", "data-s", function(v){ noteStyle = v; });
 
-  function esc(s){
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  var hwMode = "explain";
+  var hwStyle = "grade7";
+  var hwQuestions = [];
+  setupPills("hw-modes", "data-m", function(v){ hwMode = v; });
+  setupPills("hw-style", "data-s", function(v){ hwStyle = v; });
+
+  function setHwStep(n){
+    var labels = ["Step 1 · Add the worksheet","Step 2 · Pick questions","Step 3 · How to help","Step 4 · Result"];
+    $("hw-step-label").textContent = labels[n-1] || "";
+    var dots = $("hw-dots").children;
+    for(var i=0;i<dots.length;i++){
+      dots[i].className = "step-dot" + (i+1 < n ? " done" : (i+1 === n ? " on" : ""));
+    }
+    $("hw-s1").style.display = n===1 ? "block" : "none";
+    $("hw-s2").style.display = n===2 ? "block" : "none";
+    $("hw-s3").style.display = n===3 ? "block" : "none";
+    $("hw-s4").style.display = n===4 ? "block" : "none";
   }
 
-  $("hw-file").onchange = function(){
-    var f = this.files && this.files[0];
-    if(!f) return;
-    var status = $("hw-ocr-status");
-    var prev = $("hw-prev");
-    if(f.type.indexOf("image") === 0 || !f.type){
-      try {
-        var url = URL.createObjectURL(f);
-        prev.src = url;
-        prev.style.display = "block";
-      } catch(e) {}
-      status.textContent = "Reading text from photo…";
-      if(typeof Tesseract === "undefined"){
-        status.textContent = "Photo added. Type the question if text is not filled in.";
-        return;
+  function runOCR(file, statusEl, textEl, prevEl){
+    if(prevEl){
+      try{ prevEl.src = URL.createObjectURL(file); prevEl.style.display = "block"; }catch(e){}
+    }
+    statusEl.textContent = "Reading text from photo…";
+    if(typeof Tesseract === "undefined"){
+      statusEl.textContent = "Photo added. Type the text if reading is unavailable.";
+      return;
+    }
+    Tesseract.recognize(file, "eng").then(function(result){
+      var text = (result && result.data && result.data.text) ? result.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim() : "";
+      if(text && text.length > 5){
+        textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
+        statusEl.textContent = "Text ready — check it, then continue.";
+      } else {
+        statusEl.textContent = "Hard to read. Type the questions below.";
       }
-      Tesseract.recognize(f, "eng").then(function(result){
-        var text = (result && result.data && result.data.text) ? result.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim() : "";
-        if(text && text.length > 5){
-          var box = $("hw-text");
-          box.value = box.value ? (box.value + "\n\n" + text) : text;
-          status.textContent = "Text from photo is ready. Edit if needed, then Solve.";
-        } else {
-          status.textContent = "Hard to read that photo. Type the question below.";
-        }
-      }).catch(function(){
-        status.textContent = "Could not read photo. Type the question below.";
-      });
-    } else {
-      status.textContent = "Use a photo of the page for best results.";
-    }
-  };
+    }).catch(function(){
+      statusEl.textContent = "Could not read photo. Type the text below.";
+    });
+  }
 
-  $("hw-btn").onclick = function(){
+  function onHwFile(input){
+    var f = input.files && input.files[0];
+    if(!f) return;
+    runOCR(f, $("hw-ocr"), $("hw-text"), $("hw-prev"));
+  }
+  $("hw-cam").onchange = function(){ onHwFile(this); };
+  $("hw-up").onchange = function(){ onHwFile(this); };
+
+  function parseQuestions(text){
+    var lines = text.split(/\n/);
+    var qs = [];
+    var buf = "";
+    var reStart = /^\s*(?:(?:question\s*)?\d+[\).\:\-]|[Qq]\d+[\).\:\-]|[A-D][\).]|\(\d+\))/;
+    for(var i=0;i<lines.length;i++){
+      var line = lines[i].replace(/\s+$/g,"");
+      if(!line.replace(/\s/g,"")) continue;
+      if(reStart.test(line) && buf){
+        qs.push(buf.replace(/^\s+|\s+$/g,""));
+        buf = line;
+      } else {
+        buf = buf ? (buf + " " + line) : line;
+      }
+    }
+    if(buf.replace(/^\s+|\s+$/g,"")) qs.push(buf.replace(/^\s+|\s+$/g,""));
+    if(qs.length <= 1 && text.length > 80){
+      var parts = text.replace(/\s+/g," ").split(/(?=\b\d+[\).])/);
+      qs = [];
+      for(var i=0;i<parts.length;i++){
+        var p = parts[i].replace(/^\s+|\s+$/g,"");
+        if(p.length > 12) qs.push(p);
+      }
+    }
+    if(!qs.length) qs = [text.replace(/^\s+|\s+$/g,"").slice(0,500)];
+    return qs.slice(0,12).map(function(q, idx){
+      return { n: idx+1, text: q.slice(0,300), suggested: idx+1 };
+    });
+  }
+
+  $("hw-next1").onclick = function(){
     var t = $("hw-text").value.replace(/^\s+|\s+$/g,"");
-    var nums = $("hw-nums").value.replace(/^\s+|\s+$/g,"");
-    var out = $("hw-out");
-    if(!t){ out.className="out show"; out.innerHTML="<b>Result</b>Add a photo with + or type the question."; return; }
-    var lines = ["What you are being asked","- Read the question carefully."];
-    if(nums) lines.push("- Focus on #: "+nums);
-    lines.push("","Break it down","- Key words: what / why / how / calculate / explain","- What do you already know?","- What is missing?","");
-    if(hwMode==="help"){
-      lines.push("Help me understand","1. Restate in your own words","2. Name the topic","3. One fact or formula","4. First small step only","5. If stuck, say what is confusing","","Your question:",t.slice(0,1200));
-    } else if(hwMode==="answer"){
-      lines.push("Direct approach","- Use the question + your materials","- Math: show steps","- Reading: cite a sentence","","Draft answer: _______________","","Question:",t.slice(0,1200));
-    } else {
-      lines.push("Answer + explain","1. One-sentence answer","2. Why","3. Evidence or steps","","Answer: ...","Because: ...","Evidence: ...","","Question:",t.slice(0,1200));
+    if(!t){ $("hw-ocr").textContent = "Add a photo or type the worksheet text first."; return; }
+    hwQuestions = parseQuestions(t);
+    var box = $("hw-qlist");
+    box.innerHTML = "";
+    for(var i=0;i<hwQuestions.length;i++){
+      var q = hwQuestions[i];
+      var div = document.createElement("div");
+      div.className = "q-item";
+      div.innerHTML = '<input type="checkbox" id="qq'+i+'" checked /><label for="qq'+i+'"><strong>#'+q.n+'</strong> (do in order) — '+esc(q.text)+'</label>';
+      box.appendChild(div);
     }
-    out.className="out show";
-    out.innerHTML="<b>Result</b>"+esc(lines.join("\n"));
+    setHwStep(2);
+  };
+  $("hw-back2").onclick = function(){ setHwStep(1); };
+  $("hw-next2").onclick = function(){ setHwStep(3); };
+  $("hw-back3").onclick = function(){ setHwStep(2); };
+  $("hw-restart").onclick = function(){
+    $("hw-text").value = "";
+    $("hw-prev").style.display = "none";
+    $("hw-ocr").textContent = "";
+    $("hw-opt").value = "";
+    setHwStep(1);
   };
 
-  $("notes-btn").onclick = function(){
-    var raw = $("notes-text").value.replace(/^\s+|\s+$/g,"");
-    var out = $("notes-out");
-    if(!raw){ out.className="out show"; out.innerHTML="<b>Notes</b>Paste text first."; return; }
+  function styleGuide(s){
+    if(s==="grade7") return "Write clearly for a 7th grade student and up: short sentences, simple words, explain any hard term.";
+    if(s==="high") return "Write at a high-school level: clear structure, some academic words OK.";
+    return "Write like a normal person explaining to a friend: natural and plain.";
+  }
+
+  $("hw-go").onclick = function(){
+    var selected = [];
+    for(var i=0;i<hwQuestions.length;i++){
+      var cb = $("qq"+i);
+      if(cb && cb.checked) selected.push(hwQuestions[i]);
+    }
+    if(!selected.length) selected = hwQuestions.slice(0,1);
+    var opt = $("hw-opt").value.replace(/^\s+|\s+$/g,"");
+    var lines = [];
+    lines.push("Plan");
+    lines.push("Do these in order:");
+    for(var i=0;i<selected.length;i++) lines.push("  "+(i+1)+". #"+selected[i].n+" — "+selected[i].text.slice(0,80));
+    lines.push("");
+    lines.push("Mode: "+(hwMode==="explain"?"Explanation":hwMode==="answer"?"Answer":"Answer + Explanation"));
+    lines.push(styleGuide(hwStyle));
+    if(opt) lines.push("Your note: "+opt);
+    lines.push("");
+    for(var i=0;i<selected.length;i++){
+      var q = selected[i];
+      lines.push("────────");
+      lines.push("Question #"+q.n);
+      lines.push(q.text);
+      lines.push("");
+      if(hwMode==="explain"){
+        lines.push("Explanation");
+        lines.push("1. What this is asking in plain words");
+        lines.push("2. What you need to know / use");
+        lines.push("3. Steps to think through (no final answer forced)");
+        lines.push("4. Common mistakes to avoid");
+      } else if(hwMode==="answer"){
+        lines.push("Answer approach");
+        lines.push("• State the answer clearly when the question allows");
+        lines.push("• For math: show the steps");
+        lines.push("• For reading: point to evidence in the text");
+        lines.push("Draft: _______________");
+      } else {
+        lines.push("Answer + Explanation");
+        lines.push("Answer: _______________");
+        lines.push("Why: (1–3 sentences in the chosen writing style)");
+        lines.push("Evidence / steps:");
+      }
+      if(/essay|paragraph|write about|compose/i.test(q.text)){
+        lines.push("");
+        lines.push("Essay scaffold ("+hwStyle+")");
+        lines.push("• Hook / intro sentence");
+        lines.push("• Main idea");
+        lines.push("• 2–3 supporting points");
+        lines.push("• Short conclusion");
+      }
+      lines.push("");
+    }
+    var out = $("hw-out");
+    out.innerHTML = '<div class="t">Homework help</div>'+esc(lines.join("\n"));
+    setHwStep(4);
+  };
+
+  var noteStyle = "short";
+  setupPills("note-modes", "data-s", function(v){ noteStyle = v; });
+
+  function onNotesFile(input){
+    var f = input.files && input.files[0];
+    if(!f) return;
+    runOCR(f, $("notes-ocr"), $("notes-text"), $("notes-prev"));
+  }
+  $("notes-cam").onchange = function(){ onNotesFile(this); };
+  $("notes-up").onchange = function(){ onNotesFile(this); };
+
+  $("notes-fetch").onclick = function(){
+    var url = $("notes-url").value.replace(/^\s+|\s+$/g,"");
+    if(!url){ $("notes-ocr").textContent = "Paste a link first."; return; }
+    if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+    $("notes-ocr").textContent = "Loading page text…";
+    var proxy = "https://r.jina.ai/" + url;
+    fetch(proxy).then(function(r){
+      if(!r.ok) throw new Error("Could not load");
+      return r.text();
+    }).then(function(txt){
+      txt = txt.replace(/^\s+|\s+$/g,"").slice(0,20000);
+      if(txt.length < 40) throw new Error("Empty");
+      $("notes-text").value = txt;
+      $("notes-ocr").textContent = "Page text loaded. Scroll the box and Make notes.";
+    }).catch(function(){
+      $("notes-ocr").textContent = "Could not open that link here. Open it in Safari, copy the text, and paste below.";
+    });
+  };
+
+  function makeNotes(raw, style){
+    raw = raw.replace(/^\s+|\s+$/g,"");
+    if(!raw) return null;
     var parts = raw.replace(/\s+/g," ").replace(/([.!?])/g,"$1\n").split("\n");
-    var sentences = [];
+    var sents = [];
     for(var i=0;i<parts.length;i++){
       var s = parts[i].replace(/^\s+|\s+$/g,"");
-      if(s.length>15) sentences.push(s);
+      if(s.length > 20) sents.push(s);
     }
-    var n = (noteStyle==="light"||noteStyle==="short")?5:(noteStyle==="medium"?10:16);
-    var bullets = sentences.slice(0,n);
+    if(!sents.length) sents = [raw.slice(0,200)];
+    var base = Math.min(sents.length, Math.max(3, Math.floor(sents.length / (style==="short"?4:style==="medium"?3:2))));
+    var n = style==="short" ? Math.min(base, 8) : style==="medium" ? Math.min(base, 12) : Math.min(base, 16);
+    var picks = sents.slice(0, n);
     var lines = [];
-    if(noteStyle==="light"){
-      lines.push("Light notes","");
-      for(var i=0;i<bullets.length;i++) lines.push((i+1)+". "+bullets[i]);
-    } else if(noteStyle==="short"){
-      lines.push("Short review","");
-      for(var i=0;i<bullets.length;i++) lines.push("• "+bullets[i].slice(0,110));
-    } else if(noteStyle==="medium"){
-      lines.push("Medium notes","","Main ideas");
-      for(var i=0;i<Math.min(4,bullets.length);i++) lines.push("• "+bullets[i]);
-      lines.push("","Details");
-      for(var i=4;i<bullets.length;i++) lines.push("• "+bullets[i]);
+    if(style==="short"){
+      lines.push("Short notes (for quick review)");
+      lines.push("");
+      for(var i=0;i<picks.length;i++) lines.push("• "+picks[i].slice(0,120));
+    } else if(style==="medium"){
+      lines.push("Medium notes (study + quiz ready)");
+      lines.push("");
+      for(var i=0;i<picks.length;i++) lines.push((i+1)+". "+picks[i].slice(0,180));
     } else {
-      lines.push("Test-prep notes","");
-      for(var i=0;i<bullets.length;i++) lines.push((i+1)+". "+bullets[i]);
-      lines.push("","Prompts: causes? effects? names/dates?");
+      lines.push("Longer notes (~3 sentences per idea)");
+      lines.push("");
+      for(var i=0;i<picks.length;i+=3){
+        var group = picks.slice(i, i+3);
+        lines.push("Note "+(Math.floor(i/3)+1));
+        for(var j=0;j<group.length;j++) lines.push(group[j].slice(0,200));
+        lines.push("");
+      }
     }
-    out.className="out show";
-    out.innerHTML="<b>"+esc(noteStyle)+"</b>"+esc(lines.join("\n"));
+    lines.push("────────");
+    lines.push("Test tips: who/what/why · cause → effect · key names & dates");
+    return lines.join("\n");
+  }
+
+  $("notes-btn").onclick = function(){
+    var notes = makeNotes($("notes-text").value, noteStyle);
+    var out = $("notes-out");
+    if(!notes){
+      out.className = "panel show";
+      out.innerHTML = '<div class="t">Notes</div>Add a photo, load a link, or paste text first.';
+      return;
+    }
+    out.className = "panel show";
+    out.innerHTML = '<div class="t">'+esc(noteStyle)+' notes</div>'+esc(notes);
   };
 
   var chat = $("chat");
@@ -131,9 +287,9 @@
     chat.appendChild(d);
     chat.scrollTop = chat.scrollHeight;
   }
-  bubble("ai","Describe a book or topic in your own words. I search Wikipedia with several queries and open multiple pages.");
+  bubble("ai","Ask about a book or topic. I search several Wikipedia pages.");
 
-  var STOP = {the:1,a:1,an:1,and:1,or:1,of:1,in:1,on:1,to:1,for:1,is:1,it:1,this:1,that:1,with:1,from:1,by:1,as:1,at:1,be:1,was:1,were:1,are:1,about:1,book:1,novel:1,story:1,read:1,reading:1,its:1,his:1,her:1,their:1,they:1,them:1,who:1,what:1,when:1,where:1,which:1,how:1,can:1,you:1,i:1,me:1,my:1,we:1,our:1,so:1,but:1,if:1,then:1,than:1,also:1,just:1,like:1,one:1,some:1,into:1,over:1,after:1,before:1,there:1,have:1,has:1,had:1,do:1,does:1,did:1,not:1,no:1,yes:1,very:1,really:1,please:1,help:1,need:1,want:1,tell:1,explain:1,summary:1,summarize:1};
+  var STOP = {the:1,a:1,an:1,and:1,or:1,of:1,in:1,on:1,to:1,for:1,is:1,it:1,this:1,that:1,with:1,from:1,by:1,as:1,at:1,be:1,was:1,were:1,are:1,about:1,book:1,novel:1,story:1,read:1,reading:1,its:1,his:1,her:1,their:1,they:1,who:1,what:1,when:1,where:1,which:1,how:1,can:1,you:1,i:1,me:1,my:1,we:1,our:1,so:1,but:1,if:1,then:1,than:1,also:1,just:1,like:1,one:1,some:1,have:1,has:1,had:1,do:1,does:1,did:1,not:1,please:1,help:1,need:1,want:1,tell:1,explain:1,summary:1};
 
   function extractQueries(msg){
     var raw = msg.replace(/^\s+|\s+$/g,"");
@@ -141,215 +297,97 @@
     var qm = raw.match(/"([^"]{2,80})"/);
     if(qm) queries.push(qm[1]);
     var q = raw;
-    var prefixes = ["what is the ","what is ","what are ","who is ","who was ","explain ","define ","tell me about ","about ","summarize ","summary of ","i need help with ","help me with ","can you explain ","i am reading ","im reading ","i'm reading ","the book ","a book called ","book called ","novel called "];
+    var prefixes = ["what is the ","what is ","explain ","tell me about ","about ","summarize ","i am reading ","i'm reading ","the book ","book called "];
     var lower = q.toLowerCase();
     for(var i=0;i<prefixes.length;i++){
-      if(lower.indexOf(prefixes[i])===0){
-        q = q.slice(prefixes[i].length);
-        lower = q.toLowerCase();
-      }
+      if(lower.indexOf(prefixes[i])===0){ q = q.slice(prefixes[i].length); lower = q.toLowerCase(); }
     }
     q = q.replace(/[?.!]+$/g,"").replace(/^\s+|\s+$/g,"");
     if(q) queries.push(q);
     var first = q.split(/[.!?]/)[0].replace(/^\s+|\s+$/g,"");
-    if(first && first.length > 3 && first !== q) queries.push(first);
+    if(first && first.length>3 && first!==q) queries.push(first);
     var words = q.replace(/[^a-zA-Z0-9\s\-']/g," ").split(/\s+/);
     var keys = [];
     for(var i=0;i<words.length;i++){
-      var w = words[i];
-      if(w.length < 3) continue;
-      if(STOP[w.toLowerCase()]) continue;
-      keys.push(w);
+      if(words[i].length<3) continue;
+      if(STOP[words[i].toLowerCase()]) continue;
+      keys.push(words[i]);
     }
-    if(keys.length >= 2){
-      queries.push(keys.slice(0,6).join(" "));
-      queries.push(keys.slice(0,4).join(" "));
-      queries.push(keys.slice(0,3).join(" "));
-    }
-    if(keys.length >= 1) queries.push(keys[0]);
-    var core = keys.slice(0,4).join(" ");
-    if(core){
-      queries.push(core + " book");
-      queries.push(core + " novel");
-    }
-    var seen = {};
-    var out = [];
+    if(keys.length>=2){ queries.push(keys.slice(0,5).join(" ")); queries.push(keys.slice(0,3).join(" ")); }
+    if(keys.length) queries.push(keys.slice(0,4).join(" ")+" book");
+    var seen={}, out=[];
     for(var i=0;i<queries.length;i++){
       var item = queries[i].replace(/^\s+|\s+$/g,"");
-      if(!item || item.length < 2) continue;
-      var k = item.toLowerCase();
-      if(seen[k]) continue;
-      seen[k] = 1;
-      out.push(item);
+      if(!item||item.length<2) continue;
+      var k=item.toLowerCase(); if(seen[k]) continue; seen[k]=1; out.push(item);
     }
-    return out.length ? out : [raw.slice(0,80)];
+    return out.length?out:[raw.slice(0,80)];
   }
 
   function wikiOpenSearch(query){
-    var url = "https://en.wikipedia.org/w/api.php?action=opensearch&search="+encodeURIComponent(query)+"&limit=8&namespace=0&format=json&origin=*";
-    return fetch(url).then(function(r){
-      if(!r.ok) throw new Error("Search failed");
-      return r.json();
-    }).then(function(data){
-      var titles = data[1]||[];
-      var urls = data[3]||[];
-      var hits = [];
-      for(var i=0;i<titles.length;i++) hits.push({title:titles[i], url:urls[i]});
+    var url="https://en.wikipedia.org/w/api.php?action=opensearch&search="+encodeURIComponent(query)+"&limit=8&namespace=0&format=json&origin=*";
+    return fetch(url).then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+      var titles=data[1]||[], urls=data[3]||[], hits=[];
+      for(var i=0;i<titles.length;i++) hits.push({title:titles[i],url:urls[i]});
       return hits;
     });
   }
-
   function wikiFullSearch(query){
-    var url = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=8&format=json&origin=*";
-    return fetch(url).then(function(r){
-      if(!r.ok) throw new Error("Search failed");
-      return r.json();
-    }).then(function(data){
-      var arr = (data.query && data.query.search) ? data.query.search : [];
-      var hits = [];
-      for(var i=0;i<arr.length;i++){
-        hits.push({
-          title: arr[i].title,
-          url: "https://en.wikipedia.org/wiki/"+encodeURIComponent(arr[i].title.replace(/ /g,"_"))
-        });
-      }
+    var url="https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=8&format=json&origin=*";
+    return fetch(url).then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+      var arr=(data.query&&data.query.search)?data.query.search:[], hits=[];
+      for(var i=0;i<arr.length;i++) hits.push({title:arr[i].title,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(arr[i].title.replace(/ /g,"_"))});
       return hits;
     });
   }
-
   function wikiExtract(title){
-    var url = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=1400&titles="+encodeURIComponent(title)+"&format=json&origin=*";
-    return fetch(url).then(function(r){
-      if(!r.ok) throw new Error("Page failed");
-      return r.json();
-    }).then(function(data){
-      var pages = data.query && data.query.pages ? data.query.pages : {};
-      var keys = Object.keys(pages);
-      if(!keys.length) return null;
-      var p = pages[keys[0]];
-      if(p.missing !== undefined) return null;
-      var extract = (p.extract||"").trim();
-      if(!extract) return null;
-      return {
-        title: p.title,
-        extract: extract.slice(0,1500),
-        url: "https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"))
-      };
+    var url="https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=1400&titles="+encodeURIComponent(title)+"&format=json&origin=*";
+    return fetch(url).then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+      var pages=data.query&&data.query.pages?data.query.pages:{}; var keys=Object.keys(pages);
+      if(!keys.length) return null; var p=pages[keys[0]]; if(p.missing!==undefined) return null;
+      var extract=(p.extract||"").trim(); if(!extract) return null;
+      return {title:p.title,extract:extract.slice(0,1500),url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"))};
     });
   }
-
   function mergeHits(arrays){
-    var seen = {};
-    var out = [];
-    for(var a=0;a<arrays.length;a++){
-      var hits = arrays[a]||[];
-      for(var i=0;i<hits.length;i++){
-        var t = hits[i].title;
-        if(!seen[t]){ seen[t]=1; out.push(hits[i]); }
-      }
-    }
+    var seen={}, out=[];
+    for(var a=0;a<arrays.length;a++){ var hits=arrays[a]||[]; for(var i=0;i<hits.length;i++){ if(!seen[hits[i].title]){ seen[hits[i].title]=1; out.push(hits[i]); } } }
     return out;
   }
 
-  function scoreHit(h, keys){
-    var t = h.title.toLowerCase();
-    var s = 0;
-    for(var i=0;i<keys.length;i++){
-      if(t.indexOf(keys[i].toLowerCase()) !== -1) s += 2;
-    }
-    if(t.indexOf("book")!==-1 || t.indexOf("novel")!==-1) s += 1;
-    return s;
-  }
-
   function sendLearn(){
-    var input = $("learn-in");
-    var msg = input.value.replace(/^\s+|\s+$/g,"");
-    if(!msg) return;
-    var useWeb = $("web-on").checked;
-    bubble("me", msg);
-    input.value = "";
-    $("learn-btn").disabled = true;
-    bubble("ai", "…", useWeb ? "searching many pages…" : "");
-
-    function done(text, links, meta){
+    var input=$("learn-in"); var msg=input.value.replace(/^\s+|\s+$/g,""); if(!msg) return;
+    bubble("me",msg); input.value=""; $("learn-btn").disabled=true; bubble("ai","…","searching…");
+    function done(text,links,meta){
       if(chat.lastChild) chat.removeChild(chat.lastChild);
-      bubble("ai", text, meta||"");
-      var box = $("srcs");
-      box.innerHTML = "";
-      if(links && links.length){
-        for(var i=0;i<links.length;i++){
-          var a = document.createElement("a");
-          a.href = links[i].url;
-          a.target = "_blank";
-          a.rel = "noopener";
-          a.textContent = "["+(i+1)+"] "+links[i].title;
-          box.appendChild(a);
-        }
-      }
-      $("learn-btn").disabled = false;
-      input.focus();
+      bubble("ai",text,meta||"");
+      var box=$("srcs"); box.innerHTML="";
+      if(links) for(var i=0;i<links.length;i++){ var a=document.createElement("a"); a.href=links[i].url; a.target="_blank"; a.rel="noopener"; a.textContent="["+(i+1)+"] "+links[i].title; box.appendChild(a); }
+      $("learn-btn").disabled=false; input.focus();
     }
-
-    if(!useWeb){
-      done("Turn on Web research.\n\nYou asked: "+msg, [], "");
-      return;
-    }
-
-    var queries = extractQueries(msg).slice(0,5);
-    var jobs = [];
-    for(var i=0;i<queries.length;i++){
-      jobs.push(wikiOpenSearch(queries[i]).catch(function(){ return []; }));
-      jobs.push(wikiFullSearch(queries[i]).catch(function(){ return []; }));
-    }
-
+    var queries=extractQueries(msg).slice(0,5); var jobs=[];
+    for(var i=0;i<queries.length;i++){ jobs.push(wikiOpenSearch(queries[i]).catch(function(){return[];})); jobs.push(wikiFullSearch(queries[i]).catch(function(){return[];})); }
     Promise.all(jobs).then(function(results){
-      var hits = mergeHits(results);
-      var keyWords = msg.replace(/[^a-zA-Z0-9\s\-']/g," ").split(/\s+/).filter(function(w){
-        return w.length>2 && !STOP[w.toLowerCase()];
+      var hits=mergeHits(results);
+      if(!hits.length){ done("Nothing found.\nTry the exact title in quotes, or author + title.\nTried: "+queries.slice(0,3).join(" | "),[],""); return null; }
+      var keyWords=msg.replace(/[^a-zA-Z0-9\s]/g," ").split(/\s+/).filter(function(w){return w.length>2&&!STOP[w.toLowerCase()];});
+      hits.sort(function(a,b){
+        function sc(h){ var t=h.title.toLowerCase(),s=0; for(var i=0;i<keyWords.length;i++) if(t.indexOf(keyWords[i].toLowerCase())!==-1)s+=2; return s; }
+        return sc(b)-sc(a);
       });
-
-      if(!hits.length){
-        done("Still nothing on Wikipedia for that wording.\n\nTry:\n• Exact book title in quotes: \"The Giver\"\n• Author name + title\n• Main character + book\n\nQueries tried: "+queries.slice(0,4).join(" | "), [], "");
-        return null;
-      }
-
-      hits.sort(function(a,b){ return scoreHit(b, keyWords) - scoreHit(a, keyWords); });
-      var top = hits.slice(0,5);
-
-      var chain = Promise.resolve([]);
-      top.forEach(function(h){
-        chain = chain.then(function(acc){
-          return wikiExtract(h.title).then(function(ex){
-            if(ex) acc.push(ex);
-            return acc;
-          }).catch(function(){ return acc; });
-        });
-      });
-      return chain.then(function(extracts){
-        return { extracts: extracts, queries: queries };
-      });
-    }).then(function(pack){
-      if(!pack) return;
-      var extracts = pack.extracts;
-      if(!extracts || !extracts.length){
-        done("Found titles but could not load page text. Try the exact book title in quotes.", [], "");
-        return;
-      }
-      var parts = ["About what you described:", "", "Opened "+extracts.length+" Wikipedia page(s):", ""];
-      for(var i=0;i<extracts.length;i++){
-        parts.push("["+(i+1)+"] "+extracts[i].title);
-        parts.push(extracts[i].extract);
-        parts.push("");
-      }
-      parts.push("Links below open the full pages.");
-      done(parts.join("\n"), extracts, extracts.length+" pages");
-    }).catch(function(e){
-      done("Error: "+e.message+"\nCheck internet and try again.", [], "");
-    });
+      var top=hits.slice(0,5); var chain=Promise.resolve([]);
+      top.forEach(function(h){ chain=chain.then(function(acc){ return wikiExtract(h.title).then(function(ex){ if(ex)acc.push(ex); return acc; }).catch(function(){return acc;}); }); });
+      return chain;
+    }).then(function(extracts){
+      if(extracts===null||extracts===undefined) return;
+      if(!extracts.length){ done("Found titles but no page text. Try quoted title.",[],""); return; }
+      var parts=["Opened "+extracts.length+" page(s):",""];
+      for(var i=0;i<extracts.length;i++){ parts.push("["+(i+1)+"] "+extracts[i].title); parts.push(extracts[i].extract); parts.push(""); }
+      done(parts.join("\n"),extracts,extracts.length+" pages");
+    }).catch(function(e){ done("Error: "+e.message,[],""); });
   }
+  $("learn-btn").onclick=sendLearn;
+  $("learn-in").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); sendLearn(); } };
 
-  $("learn-btn").onclick = sendLearn;
-  $("learn-in").onkeydown = function(e){
-    if(e.key==="Enter"){ e.preventDefault(); sendLearn(); }
-  };
+  setHwStep(1);
 })();
