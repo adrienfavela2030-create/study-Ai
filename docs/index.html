@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0a0a0a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Study AI" />
@@ -13,99 +13,76 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app">
-    <section id="view-home" class="view active">
-      <header class="top">
-        <div class="brand-row">
-          <span class="logo">S</span>
-          <div>
-            <h1>Study AI</h1>
-            <p class="sub">Your school dashboard</p>
+  <div class="shell">
+    <main class="stage">
+      <section id="screen-home" class="screen active">
+        <div class="home-center">
+          <div class="home-logo">S</div>
+          <h1 class="home-title">Study AI</h1>
+          <p class="home-tag">What do you want to work on?</p>
+          <div class="chips">
+            <button type="button" class="chip" data-jump="homework">Homework</button>
+            <button type="button" class="chip" data-jump="notes">Notes</button>
+            <button type="button" class="chip" data-jump="learn">Learn</button>
           </div>
         </div>
-      </header>
-      <p class="welcome">Choose a tool</p>
-      <div class="dash">
-        <button type="button" class="card" data-go="homework">
-          <span class="card-icon">1</span>
-          <span class="card-title">Homework AI</span>
-          <span class="card-desc">Solve questions · 3 modes</span>
-        </button>
-        <button type="button" class="card" data-go="notes">
-          <span class="card-icon">2</span>
-          <span class="card-title">AI Notes</span>
-          <span class="card-desc">Light · Medium · Hard · Short</span>
-        </button>
-        <button type="button" class="card" data-go="learn">
-          <span class="card-icon">3</span>
-          <span class="card-title">Learn With AI</span>
-          <span class="card-desc">Chat + web research</span>
-        </button>
-      </div>
-      <p class="foot-note">Works on your phone · Web research uses live Wikipedia</p>
-    </section>
-
-    <section id="view-homework" class="view">
-      <header class="tool-bar">
-        <button type="button" class="back" data-go="home">Back</button>
-        <h2>Homework AI</h2>
-      </header>
-      <div class="tool-body">
-        <p class="help">Paste your question. Pick how you want help.</p>
-        <label class="label">Mode</label>
-        <div class="segmented" id="hw-modes">
-          <button type="button" class="seg active" data-mode="help">Help me understand</button>
-          <button type="button" class="seg" data-mode="answer">Give the answer</button>
-          <button type="button" class="seg" data-mode="both">Answer + explain</button>
+      </section>
+      <section id="screen-homework" class="screen">
+        <div class="screen-head">
+          <h2>Homework</h2>
+          <p class="screen-sub">Paste a question · pick a mode</p>
         </div>
-        <label class="label" for="hw-nums">Question # (optional)</label>
-        <input id="hw-nums" class="input" placeholder="e.g. 1, 3-5, all" />
-        <label class="label" for="hw-text">Question</label>
-        <textarea id="hw-text" class="textarea" rows="5" placeholder="Paste the homework question…"></textarea>
-        <button id="hw-go" class="btn primary full" type="button">Solve</button>
-        <div id="hw-out" class="result hidden"></div>
-      </div>
-    </section>
-
-    <section id="view-notes" class="view">
-      <header class="tool-bar">
-        <button type="button" class="back" data-go="home">Back</button>
-        <h2>AI Notes</h2>
-      </header>
-      <div class="tool-body">
-        <p class="help">Paste textbook or class text. Choose a style.</p>
-        <label class="label">Style</label>
-        <div class="segmented" id="note-styles">
-          <button type="button" class="seg active" data-style="light">Light</button>
-          <button type="button" class="seg" data-style="medium">Medium</button>
-          <button type="button" class="seg" data-style="hard">Hard</button>
-          <button type="button" class="seg" data-style="short">Short</button>
+        <div class="screen-scroll">
+          <div class="pills" id="hw-modes">
+            <button type="button" class="pill active" data-mode="help">Help me understand</button>
+            <button type="button" class="pill" data-mode="answer">Give answer</button>
+            <button type="button" class="pill" data-mode="both">Answer + explain</button>
+          </div>
+          <input id="hw-nums" class="field" placeholder="Question # (optional)" />
+          <textarea id="hw-text" class="field area" rows="4" placeholder="Paste your question here…"></textarea>
+          <button id="hw-go" class="cta" type="button">Solve</button>
+          <div id="hw-out" class="panel hidden"></div>
         </div>
-        <label class="label" for="notes-text">Your text</label>
-        <textarea id="notes-text" class="textarea" rows="7" placeholder="Paste the page or notes…"></textarea>
-        <button id="notes-go" class="btn primary full" type="button">Make notes</button>
-        <div id="notes-out" class="result hidden"></div>
-      </div>
-    </section>
-
-    <section id="view-learn" class="view">
-      <header class="tool-bar">
-        <button type="button" class="back" data-go="home">Back</button>
-        <h2>Learn With AI</h2>
-      </header>
-      <div class="tool-body learn-body">
-        <div id="chat" class="chat"></div>
-        <label class="check">
-          <input type="checkbox" id="learn-search" checked />
-          Research the web
-        </label>
-        <div class="row">
-          <input id="learn-input" class="input grow" placeholder="Ask or learn something…" />
-          <button id="learn-go" class="btn primary" type="button">Send</button>
+      </section>
+      <section id="screen-notes" class="screen">
+        <div class="screen-head">
+          <h2>Notes</h2>
+          <p class="screen-sub">Paste text · choose a style</p>
         </div>
-        <div id="learn-sources" class="sources hidden"></div>
-      </div>
-    </section>
+        <div class="screen-scroll">
+          <div class="pills" id="note-styles">
+            <button type="button" class="pill active" data-style="light">Light</button>
+            <button type="button" class="pill" data-style="medium">Medium</button>
+            <button type="button" class="pill" data-style="hard">Hard</button>
+            <button type="button" class="pill" data-style="short">Short</button>
+          </div>
+          <textarea id="notes-text" class="field area" rows="6" placeholder="Paste textbook or class notes…"></textarea>
+          <button id="notes-go" class="cta" type="button">Make notes</button>
+          <div id="notes-out" class="panel hidden"></div>
+        </div>
+      </section>
+      <section id="screen-learn" class="screen">
+        <div class="screen-head">
+          <h2>Learn</h2>
+          <p class="screen-sub">Ask · research the web</p>
+        </div>
+        <div class="chat-wrap"><div id="chat" class="chat"></div></div>
+        <div class="composer">
+          <label class="toggle"><input type="checkbox" id="learn-search" checked /> <span>Web research</span></label>
+          <div class="composer-row">
+            <input id="learn-input" class="field grow" placeholder="Ask anything…" />
+            <button id="learn-go" class="send" type="button">↑</button>
+          </div>
+          <div id="learn-sources" class="sources hidden"></div>
+        </div>
+      </section>
+    </main>
+    <nav class="tabbar" role="tablist">
+      <button type="button" class="tab active" data-screen="home"><span class="tab-ic">⌂</span><span class="tab-lb">Home</span></button>
+      <button type="button" class="tab" data-screen="homework"><span class="tab-ic">✎</span><span class="tab-lb">Homework</span></button>
+      <button type="button" class="tab" data-screen="notes"><span class="tab-ic">☰</span><span class="tab-lb">Notes</span></button>
+      <button type="button" class="tab" data-screen="learn"><span class="tab-ic">◎</span><span class="tab-lb">Learn</span></button>
+    </nav>
   </div>
   <script src="app.js"></script>
 </body>
