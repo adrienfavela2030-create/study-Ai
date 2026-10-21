@@ -5,17 +5,19 @@ function esc(s) {
 }
 function show(el, html) { el.classList.remove("hidden"); el.innerHTML = html; }
 
-$$(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    $$(".tab").forEach((t) => t.classList.remove("active"));
-    $$(".panel").forEach((p) => p.classList.remove("active"));
-    tab.classList.add("active");
-    $("#panel-" + tab.dataset.tool).classList.add("active");
-  });
+function go(name) {
+  $$(".view").forEach((v) => v.classList.remove("active"));
+  const el = $("#view-" + name);
+  if (el) el.classList.add("active");
+  window.scrollTo(0, 0);
+}
+$$("[data-go]").forEach((btn) => {
+  btn.addEventListener("click", () => go(btn.dataset.go));
 });
 
 function segs(rootSel, key, cb) {
   const root = $(rootSel);
+  if (!root) return;
   root.querySelectorAll(".seg").forEach((btn) => {
     btn.addEventListener("click", () => {
       root.querySelectorAll(".seg").forEach((b) => b.classList.remove("active"));
@@ -36,58 +38,41 @@ function solveHomework(text, mode, nums) {
   steps.push("What you are being asked");
   steps.push("- Read the full question carefully.");
   if (nums) steps.push("- Focus on question number(s): " + nums);
-  steps.push("");
-  steps.push("Break it down");
-  steps.push("- Underline key words (what, why, how, calculate, explain, compare).");
+  steps.push("", "Break it down");
+  steps.push("- Underline key words (what, why, how, calculate, explain).");
   steps.push("- List what you already know.");
-  steps.push("- List what is still missing.");
-  steps.push("");
+  steps.push("- List what is still missing.", "");
   if (mode === "help") {
-    steps.push("Help me understand (guided)");
+    steps.push("Help me understand");
     steps.push("1. Restate the question in your own words.");
     steps.push("2. Identify the topic.");
     steps.push("3. Write one fact or formula that might apply.");
-    steps.push("4. Try the first small step only, then check.");
-    steps.push("5. If stuck, say what part is confusing.");
-    steps.push("");
-    steps.push("Your question:");
-    steps.push(t.slice(0, 800));
+    steps.push("4. Try the first small step, then check.");
+    steps.push("5. If stuck, say what part is confusing.", "");
+    steps.push("Your question:", t.slice(0, 800));
   } else if (mode === "answer") {
     steps.push("Direct approach");
-    steps.push("- Use only information in the question and your materials.");
-    steps.push("- For math: show numbers and operations clearly.");
-    steps.push("- For reading: point to a sentence that supports the answer.");
-    steps.push("");
-    steps.push("Draft answer: _______________________________");
-    steps.push("");
-    steps.push("Question text:");
-    steps.push(t.slice(0, 800));
+    steps.push("- Use the question and your materials only.");
+    steps.push("- Math: show numbers and operations.");
+    steps.push("- Reading: point to supporting sentences.", "");
+    steps.push("Draft answer: _______________________________", "");
+    steps.push("Question:", t.slice(0, 800));
   } else {
     steps.push("Answer + explain");
-    steps.push("1. State the answer in one sentence.");
-    steps.push("2. Explain why (reasons, steps, or evidence).");
-    steps.push("3. Check units, labels, or page references.");
-    steps.push("");
-    steps.push("Template:");
-    steps.push("Answer: ...");
-    steps.push("Because: ...");
-    steps.push("Evidence / steps: ...");
-    steps.push("");
-    steps.push("Your question:");
-    steps.push(t.slice(0, 800));
+    steps.push("1. Answer in one sentence.");
+    steps.push("2. Explain why.");
+    steps.push("3. Check units or evidence.", "");
+    steps.push("Answer: ...", "Because: ...", "Evidence: ...", "");
+    steps.push("Question:", t.slice(0, 800));
   }
-  steps.push("");
-  steps.push("This phone version guides you step by step so you can finish the work.");
   return steps.join("\n");
 }
 
 $("#hw-go").addEventListener("click", () => {
-  const text = $("#hw-text").value;
-  const nums = $("#hw-nums").value.trim();
+  const ans = solveHomework($("#hw-text").value, hwMode, $("#hw-nums").value.trim());
   const out = $("#hw-out");
-  const ans = solveHomework(text, hwMode, nums);
   if (!ans) { show(out, '<p class="body">Paste a question first.</p>'); return; }
-  show(out, '<h3>Homework help</h3><div class="body">' + esc(ans) + '</div><p class="note">Phone mode — structured help on your device.</p>');
+  show(out, '<h3>Homework help</h3><div class="body">' + esc(ans) + '</div>');
 });
 
 function makeNotes(text, style) {
@@ -98,7 +83,7 @@ function makeNotes(text, style) {
   const bullets = sentences.slice(0, n);
   let out = [];
   if (style === "light") {
-    out.push("LIGHT NOTES — main ideas only", "");
+    out.push("LIGHT NOTES", "");
     bullets.forEach((s, i) => out.push(i + 1 + ". " + s));
   } else if (style === "short") {
     out.push("SHORT REVIEW", "");
@@ -106,28 +91,22 @@ function makeNotes(text, style) {
   } else if (style === "medium") {
     out.push("MEDIUM NOTES", "", "Main ideas");
     bullets.slice(0, 4).forEach((s) => out.push("- " + s));
-    out.push("", "Supporting details");
+    out.push("", "Details");
     bullets.slice(4).forEach((s) => out.push("- " + s));
-    out.push("", "Key terms: add definitions from class for important words.");
   } else {
-    out.push("HARD / TEST-PREP NOTES", "", "Facts & statements");
+    out.push("TEST-PREP NOTES", "");
     bullets.forEach((s, i) => out.push(i + 1 + ". " + s));
-    out.push("", "Study prompts");
-    out.push("- What causes are mentioned?");
-    out.push("- What effects or results?");
-    out.push("- Names, dates, or places to memorize?");
-    out.push("- How does this connect to an earlier lesson?");
+    out.push("", "Study prompts", "- Causes?", "- Effects?", "- Names / dates?", "- Connections?");
   }
-  out.push("", "Source: your pasted text only.");
+  out.push("", "From your pasted text only.");
   return out.join("\n");
 }
 
 $("#notes-go").addEventListener("click", () => {
-  const text = $("#notes-text").value;
+  const notes = makeNotes($("#notes-text").value, noteStyle);
   const out = $("#notes-out");
-  const notes = makeNotes(text, noteStyle);
-  if (!notes) { show(out, '<p class="body">Paste source text first.</p>'); return; }
-  show(out, '<h3>' + esc(noteStyle) + ' notes</h3><div class="body">' + esc(notes) + '</div><p class="note">Built on your phone from the text you pasted.</p>');
+  if (!notes) { show(out, '<p class="body">Paste text first.</p>'); return; }
+  show(out, '<h3>' + esc(noteStyle) + ' notes</h3><div class="body">' + esc(notes) + '</div>');
 });
 
 const chatEl = $("#chat");
@@ -144,12 +123,9 @@ async function wikiSearch(query) {
   const r = await fetch(url);
   if (!r.ok) throw new Error("Search failed");
   const data = await r.json();
-  const titles = data[1] || [];
-  const descs = data[2] || [];
-  const urls = data[3] || [];
+  const titles = data[1] || [], descs = data[2] || [], urls = data[3] || [];
   return titles.map((title, i) => ({ title, desc: descs[i] || "", url: urls[i] }));
 }
-
 async function wikiExtract(title) {
   const url = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=" + encodeURIComponent(title) + "&format=json&origin=*";
   const r = await fetch(url);
@@ -160,30 +136,26 @@ async function wikiExtract(title) {
   const p = pages[0];
   return { title: p.title, extract: (p.extract || "").slice(0, 2500), url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(p.title.replace(/ /g, "_")) };
 }
-
 function explainFromSources(question, extracts) {
-  if (!extracts.length) return "I could not open enough pages. Try fewer words (example: Perseverance rover or water cycle).";
-  const parts = ["Here is what the sources say about: " + question, ""];
+  if (!extracts.length) return "No pages found. Try fewer words (example: water cycle).";
+  const parts = ["About: " + question, ""];
   extracts.forEach((ex, i) => {
     parts.push("[" + (i + 1) + "] " + ex.title);
-    parts.push(ex.extract.slice(0, 700) + (ex.extract.length > 700 ? "..." : ""));
-    parts.push("");
+    parts.push(ex.extract.slice(0, 700) + (ex.extract.length > 700 ? "..." : ""), "");
   });
-  parts.push("Tip: open the linked pages for full detail. Learn uses live Wikipedia on your phone.");
+  parts.push("Open the links below for more.");
   return parts.join("\n");
 }
-
 function renderSources(list) {
   const box = $("#learn-sources");
   if (!list || !list.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
   box.classList.remove("hidden");
-  let html = "<strong>Sources opened</strong>";
+  let html = "<strong>Sources</strong>";
   list.forEach((s, i) => {
-    html += '<div class="source-card"><span class="tag">PAGE</span><a href="' + esc(s.url) + '" target="_blank" rel="noopener">[' + (i + 1) + "] ' + esc(s.title) + '</a><div style="color:var(--muted);margin-top:4px">' + esc((s.extract || "").slice(0, 140)) + '...</div></div>';
+    html += '<div class="source-card"><span class="tag">PAGE</span><a href="' + esc(s.url) + '" target="_blank" rel="noopener">[' + (i + 1) + "] ' + esc(s.title) + '</a></div>';
   });
   box.innerHTML = html;
 }
-
 async function sendLearn() {
   const input = $("#learn-input");
   const msg = input.value.trim();
@@ -192,9 +164,9 @@ async function sendLearn() {
   bubble("user", msg);
   input.value = "";
   $("#learn-go").disabled = true;
-  bubble("ai", "...", useSearch ? "searching Wikipedia..." : "thinking...");
+  bubble("ai", "...", useSearch ? "searching..." : "");
   try {
-    let reply; let sources = [];
+    let reply;
     if (useSearch) {
       let q = msg;
       for (const p of ["what is the ", "what is ", "what are ", "who is ", "explain ", "define "]) {
@@ -206,23 +178,23 @@ async function sendLearn() {
         const ex = await wikiExtract(h.title);
         if (ex && ex.extract) extracts.push(ex);
       }
-      sources = extracts;
       reply = explainFromSources(msg, extracts);
       renderSources(extracts);
     } else {
-      reply = "Web research is off. Turn on Research the web to read live Wikipedia pages.\n\nYou asked: " + msg;
+      reply = "Turn on Research the web for live pages.\n\nYou asked: " + msg;
       renderSources([]);
     }
     if (chatEl.lastChild) chatEl.removeChild(chatEl.lastChild);
-    bubble("ai", reply, useSearch ? "Sources: live Wikipedia" : "");
+    bubble("ai", reply, useSearch ? "Live Wikipedia" : "");
   } catch (e) {
     if (chatEl.lastChild) chatEl.removeChild(chatEl.lastChild);
-    bubble("ai", "Something went wrong: " + e.message + "\nCheck your internet and try again.");
+    bubble("ai", "Error: " + e.message);
   }
   $("#learn-go").disabled = false;
   input.focus();
 }
-
 $("#learn-go").addEventListener("click", sendLearn);
-$("#learn-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendLearn(); } });
-bubble("ai", "Hi — Study AI on your phone.\n\n• Homework — guided steps\n• Notes — Light / Medium / Hard / Short\n• Learn — optional live Wikipedia research\n\nAsk something or switch tabs above.");
+$("#learn-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); sendLearn(); }
+});
+bubble("ai", "Ask a question. Leave Research the web on to read real pages.");
