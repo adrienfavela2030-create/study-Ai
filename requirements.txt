@@ -1,0 +1,13 @@
+torch>=2.0.0
+numpy
+pyyaml
+tqdm
+regex
+requests
+beautifulsoup4
+lxml
+Pillow
+pytest
+fastapi
+uvicorn
+python-multipart
