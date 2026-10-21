@@ -159,7 +159,7 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
     })(notePills[i]);
   }
   function esc(s){
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    return String(s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">");
   }
   $("hw-btn").onclick = function(){
     var t = $("hw-text").value.replace(/^\s+|\s+$/g,"");
@@ -183,7 +183,7 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
     var raw = $("notes-text").value.replace(/^\s+|\s+$/g,"");
     var out = $("notes-out");
     if(!raw){ out.className="out show"; out.innerHTML="<b>Notes</b>Paste text first."; return; }
-    var parts = raw.replace(/\s+/g," ").split(/(?<=[.!?])\s+/);
+    var parts = raw.replace(/\s+/g," ").replace(/([.!?])/g,"$1\n").split("\n");
     var sentences = [];
     for(var i=0;i<parts.length;i++){
       var s = parts[i].replace(/^\s+|\s+$/g,"");
