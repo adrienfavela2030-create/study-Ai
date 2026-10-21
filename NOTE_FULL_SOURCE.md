@@ -1,21 +1,30 @@
-# Full source modules
+# Study AI repo status
 
-The complete from-scratch implementations of:
-- `src/model/transformer.py` (decoder-only GPT)
-- `src/tokenizer/bpe_tokenizer.py`
-- `src/search/web_search.py` + `grounding.py`
-- `src/training/train_lm.py`
-- training data + scripts
+## Already in this repository
 
-are in the project built during the Study AI session.
+- Mobile website: `frontend/` (Homework AI, AI Notes, Learn With AI)
+- Backend API: `backend/main.py` (all required endpoints)
+- Config, requirements, docs, training entry scripts
+- Package layout under `src/`
 
-**Download the full package:** if you still have access to the chat artifacts, use `study_ai_github.zip`.
+## Still to add (full from-scratch implementations)
 
-Or re-request the remaining files to be pushed in a follow-up.
+These files exist in the development build and should be pushed next:
 
-This repo already has:
-- Working website frontend + backend API
-- Config, docs, requirements
-- Script entry points
+- `src/model/transformer.py` — decoder-only Transformer (random init)
+- `src/tokenizer/bpe_tokenizer.py` — from-scratch BPE
+- `src/search/web_search.py` — real page retrieval
+- `src/search/grounding.py` — source grounding
+- `src/training/train_lm.py` — training loop
+- `data/processed/` and tokenizer checkpoint
 
-To train, you need the full `src/` modules and data. They can be added in the next push.
+Ask Grok to “push the remaining Study AI source modules” to finish.
+
+## Run the website (when you have Python)
+
+```bash
+pip install -r requirements.txt
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+```
+
+Open http://127.0.0.1:8000
