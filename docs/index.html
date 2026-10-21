@@ -8,14 +8,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Study AI" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
   <title>Study AI</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    .screen { display: none !important; }
+    .screen.is-on { display: flex !important; flex-direction: column !important; }
+  </style>
 </head>
 <body>
   <div class="shell">
     <main class="stage">
-      <section id="screen-home" class="screen active">
+      <section id="screen-home" class="screen is-on">
         <div class="home-center">
           <div class="home-logo">S</div>
           <h1 class="home-title">Study AI</h1>
@@ -38,8 +41,8 @@
             <button type="button" class="pill" data-mode="answer">Give answer</button>
             <button type="button" class="pill" data-mode="both">Answer + explain</button>
           </div>
-          <input id="hw-nums" class="field" placeholder="Question # (optional)" />
-          <textarea id="hw-text" class="field area" rows="4" placeholder="Paste your question here…"></textarea>
+          <input id="hw-nums" class="field" type="text" placeholder="Question # (optional)" autocomplete="off" />
+          <textarea id="hw-text" class="field area" rows="5" placeholder="Paste your question here…"></textarea>
           <button id="hw-go" class="cta" type="button">Solve</button>
           <div id="hw-out" class="panel hidden"></div>
         </div>
@@ -56,7 +59,7 @@
             <button type="button" class="pill" data-style="hard">Hard</button>
             <button type="button" class="pill" data-style="short">Short</button>
           </div>
-          <textarea id="notes-text" class="field area" rows="6" placeholder="Paste textbook or class notes…"></textarea>
+          <textarea id="notes-text" class="field area" rows="7" placeholder="Paste textbook or class notes…"></textarea>
           <button id="notes-go" class="cta" type="button">Make notes</button>
           <div id="notes-out" class="panel hidden"></div>
         </div>
@@ -70,18 +73,18 @@
         <div class="composer">
           <label class="toggle"><input type="checkbox" id="learn-search" checked /> <span>Web research</span></label>
           <div class="composer-row">
-            <input id="learn-input" class="field grow" placeholder="Ask anything…" />
-            <button id="learn-go" class="send" type="button">↑</button>
+            <input id="learn-input" class="field grow" type="text" placeholder="Ask anything…" autocomplete="off" />
+            <button id="learn-go" class="send" type="button">Go</button>
           </div>
           <div id="learn-sources" class="sources hidden"></div>
         </div>
       </section>
     </main>
-    <nav class="tabbar" role="tablist">
-      <button type="button" class="tab active" data-screen="home"><span class="tab-ic">⌂</span><span class="tab-lb">Home</span></button>
-      <button type="button" class="tab" data-screen="homework"><span class="tab-ic">✎</span><span class="tab-lb">Homework</span></button>
-      <button type="button" class="tab" data-screen="notes"><span class="tab-ic">☰</span><span class="tab-lb">Notes</span></button>
-      <button type="button" class="tab" data-screen="learn"><span class="tab-ic">◎</span><span class="tab-lb">Learn</span></button>
+    <nav class="tabbar">
+      <button type="button" class="tab is-on" data-screen="home"><span class="tab-ic">Home</span></button>
+      <button type="button" class="tab" data-screen="homework"><span class="tab-ic">Homework</span></button>
+      <button type="button" class="tab" data-screen="notes"><span class="tab-ic">Notes</span></button>
+      <button type="button" class="tab" data-screen="learn"><span class="tab-ic">Learn</span></button>
     </nav>
   </div>
   <script src="app.js"></script>
