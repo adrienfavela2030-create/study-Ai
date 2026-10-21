@@ -1,92 +1,297 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
-  <meta name="theme-color" content="#0a0a0a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Study AI" />
-  <link rel="manifest" href="manifest.json" />
-  <title>Study AI</title>
-  <link rel="stylesheet" href="styles.css" />
-  <style>
-    .screen { display: none !important; }
-    .screen.is-on { display: flex !important; flex-direction: column !important; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Study AI" />
+<title>Study AI</title>
+<style>
+html,body{margin:0;padding:0;height:100%;background:#0a0a0a;color:#f2f2f2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%;overflow:hidden}
+*{box-sizing:border-box}
+#app{max-width:480px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#stage{flex:1;min-height:0;position:relative;overflow:hidden}
+.page{display:none;flex-direction:column;height:100%;padding:0 16px;overflow:hidden}
+.page.on{display:flex}
+.home{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px 8px 32px}
+.logo{width:56px;height:56px;border-radius:16px;background:#fff;color:#0a0a0a;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;margin-bottom:14px}
+h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
+.tag{color:#888;margin:0 0 24px;font-size:16px}
+.chiprow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.chip,.pill,.btn,.tab,.send{border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit}
+.chip{background:#161616;border:1px solid #2c2c2c;color:#f2f2f2;border-radius:999px;padding:12px 18px;font-size:15px;font-weight:600}
+.head{padding:16px 0 10px;flex-shrink:0}
+.head h2{margin:0;font-size:22px;font-weight:700}
+.head p{margin:4px 0 0;color:#888;font-size:14px}
+.scroll{flex:1;min-height:0;overflow-y:auto;padding-bottom:12px;-webkit-overflow-scrolling:touch}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.pill{background:#161616;border:1px solid #2c2c2c;color:#888;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:600}
+.pill.on{background:#fff;color:#0a0a0a;border-color:#fff}
+.inp,.area{display:block;width:100%;background:#161616;border:1px solid #2c2c2c;border-radius:14px;color:#f2f2f2;padding:14px;font-size:16px;font-family:inherit;margin:0 0 12px;outline:none;-webkit-appearance:none}
+.inp::placeholder,.area::placeholder{color:#666}
+.area{min-height:120px;resize:vertical}
+.btn{display:block;width:100%;background:#fff;color:#0a0a0a;border-radius:14px;padding:15px;font-size:16px;font-weight:700}
+.out{display:none;margin-top:14px;background:#161616;border:1px solid #2c2c2c;border-radius:14px;padding:14px;white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.5}
+.out.show{display:block}
+.out b{display:block;font-size:12px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.chatbox{flex:1;min-height:0;overflow-y:auto;padding:8px 0 10px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.b{max-width:90%;padding:12px 14px;border-radius:16px;font-size:15px;white-space:pre-wrap;word-break:break-word}
+.b.me{align-self:flex-end;background:#fff;color:#0a0a0a}
+.b.ai{align-self:flex-start;background:#161616;border:1px solid #2c2c2c}
+.b small{display:block;margin-top:6px;font-size:11px;color:#888}
+.comp{flex-shrink:0;padding:8px 0 10px;border-top:1px solid #2c2c2c}
+.toggle{display:flex;align-items:center;gap:8px;color:#888;font-size:14px;margin-bottom:8px}
+.toggle input{width:18px;height:18px}
+.row{display:flex;gap:8px;align-items:center}
+.row .inp{margin:0;flex:1;min-width:0}
+.send{flex-shrink:0;height:48px;padding:0 16px;border-radius:14px;background:#fff;color:#0a0a0a;font-weight:700;font-size:15px}
+.srcs{margin-top:8px}
+.srcs a{display:block;background:#1a1a1a;border-radius:10px;padding:10px;margin-top:6px;color:#1d9bf0;text-decoration:none;font-size:13px;font-weight:600}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid #2c2c2c;background:#0a0a0a;padding-bottom:env(safe-area-inset-bottom,0px);min-height:56px;flex-shrink:0}
+.tab{background:transparent;color:#888;font-size:12px;font-weight:600;padding:14px 4px}
+.tab.on{color:#fff}
+</style>
 </head>
 <body>
-  <div class="shell">
-    <main class="stage">
-      <section id="screen-home" class="screen is-on">
-        <div class="home-center">
-          <div class="home-logo">S</div>
-          <h1 class="home-title">Study AI</h1>
-          <p class="home-tag">What do you want to work on?</p>
-          <div class="chips">
-            <button type="button" class="chip" data-jump="homework">Homework</button>
-            <button type="button" class="chip" data-jump="notes">Notes</button>
-            <button type="button" class="chip" data-jump="learn">Learn</button>
-          </div>
+<div id="app">
+  <div id="stage">
+    <div id="page-home" class="page on">
+      <div class="home">
+        <div class="logo">S</div>
+        <h1>Study AI</h1>
+        <p class="tag">What do you want to work on?</p>
+        <div class="chiprow">
+          <button type="button" class="chip" id="go-hw">Homework</button>
+          <button type="button" class="chip" id="go-notes">Notes</button>
+          <button type="button" class="chip" id="go-learn">Learn</button>
         </div>
-      </section>
-      <section id="screen-homework" class="screen">
-        <div class="screen-head">
-          <h2>Homework</h2>
-          <p class="screen-sub">Paste a question · pick a mode</p>
+      </div>
+    </div>
+    <div id="page-homework" class="page">
+      <div class="head"><h2>Homework</h2><p>Paste a question · pick a mode</p></div>
+      <div class="scroll">
+        <div class="pills" id="hw-modes">
+          <button type="button" class="pill on" data-m="help">Help me understand</button>
+          <button type="button" class="pill" data-m="answer">Give answer</button>
+          <button type="button" class="pill" data-m="both">Answer + explain</button>
         </div>
-        <div class="screen-scroll">
-          <div class="pills" id="hw-modes">
-            <button type="button" class="pill active" data-mode="help">Help me understand</button>
-            <button type="button" class="pill" data-mode="answer">Give answer</button>
-            <button type="button" class="pill" data-mode="both">Answer + explain</button>
-          </div>
-          <input id="hw-nums" class="field" type="text" placeholder="Question # (optional)" autocomplete="off" />
-          <textarea id="hw-text" class="field area" rows="5" placeholder="Paste your question here…"></textarea>
-          <button id="hw-go" class="cta" type="button">Solve</button>
-          <div id="hw-out" class="panel hidden"></div>
+        <input class="inp" id="hw-nums" type="text" placeholder="Question # (optional)" />
+        <textarea class="area" id="hw-text" placeholder="Paste your question here…"></textarea>
+        <button type="button" class="btn" id="hw-btn">Solve</button>
+        <div class="out" id="hw-out"></div>
+      </div>
+    </div>
+    <div id="page-notes" class="page">
+      <div class="head"><h2>Notes</h2><p>Paste text · choose a style</p></div>
+      <div class="scroll">
+        <div class="pills" id="note-modes">
+          <button type="button" class="pill on" data-s="light">Light</button>
+          <button type="button" class="pill" data-s="medium">Medium</button>
+          <button type="button" class="pill" data-s="hard">Hard</button>
+          <button type="button" class="pill" data-s="short">Short</button>
         </div>
-      </section>
-      <section id="screen-notes" class="screen">
-        <div class="screen-head">
-          <h2>Notes</h2>
-          <p class="screen-sub">Paste text · choose a style</p>
+        <textarea class="area" id="notes-text" placeholder="Paste textbook or class notes…"></textarea>
+        <button type="button" class="btn" id="notes-btn">Make notes</button>
+        <div class="out" id="notes-out"></div>
+      </div>
+    </div>
+    <div id="page-learn" class="page">
+      <div class="head"><h2>Learn</h2><p>Ask · research the web</p></div>
+      <div class="chatbox" id="chat"></div>
+      <div class="comp">
+        <label class="toggle"><input type="checkbox" id="web-on" checked /> Web research</label>
+        <div class="row">
+          <input class="inp" id="learn-in" type="text" placeholder="Ask anything…" />
+          <button type="button" class="send" id="learn-btn">Go</button>
         </div>
-        <div class="screen-scroll">
-          <div class="pills" id="note-styles">
-            <button type="button" class="pill active" data-style="light">Light</button>
-            <button type="button" class="pill" data-style="medium">Medium</button>
-            <button type="button" class="pill" data-style="hard">Hard</button>
-            <button type="button" class="pill" data-style="short">Short</button>
-          </div>
-          <textarea id="notes-text" class="field area" rows="7" placeholder="Paste textbook or class notes…"></textarea>
-          <button id="notes-go" class="cta" type="button">Make notes</button>
-          <div id="notes-out" class="panel hidden"></div>
-        </div>
-      </section>
-      <section id="screen-learn" class="screen">
-        <div class="screen-head">
-          <h2>Learn</h2>
-          <p class="screen-sub">Ask · research the web</p>
-        </div>
-        <div class="chat-wrap"><div id="chat" class="chat"></div></div>
-        <div class="composer">
-          <label class="toggle"><input type="checkbox" id="learn-search" checked /> <span>Web research</span></label>
-          <div class="composer-row">
-            <input id="learn-input" class="field grow" type="text" placeholder="Ask anything…" autocomplete="off" />
-            <button id="learn-go" class="send" type="button">Go</button>
-          </div>
-          <div id="learn-sources" class="sources hidden"></div>
-        </div>
-      </section>
-    </main>
-    <nav class="tabbar">
-      <button type="button" class="tab is-on" data-screen="home"><span class="tab-ic">Home</span></button>
-      <button type="button" class="tab" data-screen="homework"><span class="tab-ic">Homework</span></button>
-      <button type="button" class="tab" data-screen="notes"><span class="tab-ic">Notes</span></button>
-      <button type="button" class="tab" data-screen="learn"><span class="tab-ic">Learn</span></button>
-    </nav>
+        <div class="srcs" id="srcs"></div>
+      </div>
+    </div>
   </div>
-  <script src="app.js"></script>
+  <div class="tabs">
+    <button type="button" class="tab on" id="tab-home">Home</button>
+    <button type="button" class="tab" id="tab-homework">Homework</button>
+    <button type="button" class="tab" id="tab-notes">Notes</button>
+    <button type="button" class="tab" id="tab-learn">Learn</button>
+  </div>
+</div>
+<script>
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function show(name){
+    var pages = document.querySelectorAll(".page");
+    for(var i=0;i<pages.length;i++) pages[i].classList.remove("on");
+    var tabs = document.querySelectorAll(".tab");
+    for(var j=0;j<tabs.length;j++) tabs[j].classList.remove("on");
+    var p = $("page-"+name);
+    if(p) p.classList.add("on");
+    var t = $("tab-"+name);
+    if(t) t.classList.add("on");
+  }
+  $("tab-home").onclick = function(){ show("home"); };
+  $("tab-homework").onclick = function(){ show("homework"); };
+  $("tab-notes").onclick = function(){ show("notes"); };
+  $("tab-learn").onclick = function(){ show("learn"); };
+  $("go-hw").onclick = function(){ show("homework"); };
+  $("go-notes").onclick = function(){ show("notes"); };
+  $("go-learn").onclick = function(){ show("learn"); };
+  var hwMode = "help";
+  var noteStyle = "light";
+  var hwPills = $("hw-modes").getElementsByClassName("pill");
+  for(var i=0;i<hwPills.length;i++){
+    hwPills[i].onclick = (function(btn){
+      return function(){
+        for(var k=0;k<hwPills.length;k++) hwPills[k].classList.remove("on");
+        btn.classList.add("on");
+        hwMode = btn.getAttribute("data-m");
+      };
+    })(hwPills[i]);
+  }
+  var notePills = $("note-modes").getElementsByClassName("pill");
+  for(var i=0;i<notePills.length;i++){
+    notePills[i].onclick = (function(btn){
+      return function(){
+        for(var k=0;k<notePills.length;k++) notePills[k].classList.remove("on");
+        btn.classList.add("on");
+        noteStyle = btn.getAttribute("data-s");
+      };
+    })(notePills[i]);
+  }
+  function esc(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  $("hw-btn").onclick = function(){
+    var t = $("hw-text").value.replace(/^\s+|\s+$/g,"");
+    var nums = $("hw-nums").value.replace(/^\s+|\s+$/g,"");
+    var out = $("hw-out");
+    if(!t){ out.className="out show"; out.innerHTML="<b>Result</b>Paste a question first."; return; }
+    var lines = ["What you are being asked","- Read the question carefully."];
+    if(nums) lines.push("- Focus on #: "+nums);
+    lines.push("","Break it down","- Key words: what / why / how / calculate / explain","- What do you already know?","- What is missing?","");
+    if(hwMode==="help"){
+      lines.push("Help me understand","1. Restate in your own words","2. Name the topic","3. One fact or formula","4. First small step only","5. If stuck, say what is confusing","","Your question:",t.slice(0,800));
+    } else if(hwMode==="answer"){
+      lines.push("Direct approach","- Use the question + your materials","- Math: show steps","- Reading: cite a sentence","","Draft answer: _______________","","Question:",t.slice(0,800));
+    } else {
+      lines.push("Answer + explain","1. One-sentence answer","2. Why","3. Evidence or steps","","Answer: ...","Because: ...","Evidence: ...","","Question:",t.slice(0,800));
+    }
+    out.className="out show";
+    out.innerHTML="<b>Result</b>"+esc(lines.join("\n"));
+  };
+  $("notes-btn").onclick = function(){
+    var raw = $("notes-text").value.replace(/^\s+|\s+$/g,"");
+    var out = $("notes-out");
+    if(!raw){ out.className="out show"; out.innerHTML="<b>Notes</b>Paste text first."; return; }
+    var parts = raw.replace(/\s+/g," ").split(/(?<=[.!?])\s+/);
+    var sentences = [];
+    for(var i=0;i<parts.length;i++){
+      var s = parts[i].replace(/^\s+|\s+$/g,"");
+      if(s.length>15) sentences.push(s);
+    }
+    var n = (noteStyle==="light"||noteStyle==="short")?5:(noteStyle==="medium"?10:16);
+    var bullets = sentences.slice(0,n);
+    var lines = [];
+    if(noteStyle==="light"){
+      lines.push("Light notes","");
+      for(var i=0;i<bullets.length;i++) lines.push((i+1)+". "+bullets[i]);
+    } else if(noteStyle==="short"){
+      lines.push("Short review","");
+      for(var i=0;i<bullets.length;i++) lines.push("• "+bullets[i].slice(0,110));
+    } else if(noteStyle==="medium"){
+      lines.push("Medium notes","","Main ideas");
+      for(var i=0;i<Math.min(4,bullets.length);i++) lines.push("• "+bullets[i]);
+      lines.push("","Details");
+      for(var i=4;i<bullets.length;i++) lines.push("• "+bullets[i]);
+    } else {
+      lines.push("Test-prep notes","");
+      for(var i=0;i<bullets.length;i++) lines.push((i+1)+". "+bullets[i]);
+      lines.push("","Prompts: causes? effects? names/dates?");
+    }
+    out.className="out show";
+    out.innerHTML="<b>"+esc(noteStyle)+"</b>"+esc(lines.join("\n"));
+  };
+  var chat = $("chat");
+  function bubble(who, text, meta){
+    var d = document.createElement("div");
+    d.className = "b "+(who==="me"?"me":"ai");
+    d.innerHTML = esc(text)+(meta?"<small>"+esc(meta)+"</small>":"");
+    chat.appendChild(d);
+    chat.scrollTop = chat.scrollHeight;
+  }
+  bubble("ai","Ask something. Web research reads live Wikipedia pages.");
+  function sendLearn(){
+    var input = $("learn-in");
+    var msg = input.value.replace(/^\s+|\s+$/g,"");
+    if(!msg) return;
+    var useWeb = $("web-on").checked;
+    bubble("me", msg);
+    input.value = "";
+    $("learn-btn").disabled = true;
+    bubble("ai", "…", useWeb?"searching…":"");
+    function done(text, links, meta){
+      if(chat.lastChild) chat.removeChild(chat.lastChild);
+      bubble("ai", text, meta||"");
+      var box = $("srcs");
+      box.innerHTML = "";
+      if(links && links.length){
+        for(var i=0;i<links.length;i++){
+          var a = document.createElement("a");
+          a.href = links[i].url;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "["+(i+1)+"] "+links[i].title;
+          box.appendChild(a);
+        }
+      }
+      $("learn-btn").disabled = false;
+      input.focus();
+    }
+    if(!useWeb){
+      done("Turn on Web research for live pages.\n\nYou asked: "+msg, [], "");
+      return;
+    }
+    var q = msg;
+    var prefixes = ["what is the ","what is ","what are ","who is ","explain ","define "];
+    var lower = q.toLowerCase();
+    for(var i=0;i<prefixes.length;i++){
+      if(lower.indexOf(prefixes[i])===0){
+        q = q.slice(prefixes[i].length).replace(/[?.!]+$/,"").replace(/^\s+|\s+$/g,"");
+        break;
+      }
+    }
+    if(!q) q = msg;
+    var searchUrl = "https://en.wikipedia.org/w/api.php?action=opensearch&search="+encodeURIComponent(q)+"&limit=5&namespace=0&format=json&origin=*";
+    fetch(searchUrl).then(function(r){
+      if(!r.ok) throw new Error("Search failed");
+      return r.json();
+    }).then(function(data){
+      var titles = data[1]||[];
+      if(!titles.length){ done("Nothing found. Try a shorter topic.", [], ""); return null; }
+      var title = titles[0];
+      var extractUrl = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles="+encodeURIComponent(title)+"&format=json&origin=*";
+      return fetch(extractUrl).then(function(r2){
+        if(!r2.ok) throw new Error("Page failed");
+        return r2.json();
+      }).then(function(data2){
+        var pages = data2.query && data2.query.pages ? data2.query.pages : {};
+        var keys = Object.keys(pages);
+        if(!keys.length){ done("Could not open the page.", [], ""); return; }
+        var p = pages[keys[0]];
+        var extract = (p.extract||"").slice(0,1200);
+        var url = "https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"));
+        var reply = "About: "+msg+"\n\n["+p.title+"]\n"+extract+(extract.length>=1200?"…":"");
+        done(reply, [{title:p.title, url:url}], "Wikipedia");
+      });
+    }).catch(function(e){
+      done("Error: "+e.message+"\nCheck your internet.", [], "");
+    });
+  }
+  $("learn-btn").onclick = sendLearn;
+  $("learn-in").onkeydown = function(e){
+    if(e.key==="Enter"){ e.preventDefault(); sendLearn(); }
+  };
+})();
+</script>
 </body>
 </html>
