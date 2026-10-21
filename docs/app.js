@@ -1,6 +1,6 @@
 (function(){
   function $(id){ return document.getElementById(id); }
-  function esc(s){ return String(s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"); }
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function show(name){
     var pages = document.querySelectorAll(".page");
     for(var i=0;i<pages.length;i++) pages[i].classList.remove("on");
@@ -87,10 +87,9 @@
       }});
     }).then(function(result){
       var text = (result && result.data && result.data.text) ? result.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim() : "";
-      var conf = result && result.data && typeof result.data.confidence === "number" ? result.data.confidence : 0;
       if(text && text.length > 5 && !isGibberish(text)){
         textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
-        statusEl.textContent = conf >= 35 ? "Text ready — fix any mistakes, then continue." : "Partial read — please fix the text.";
+        statusEl.textContent = "Text ready — fix any mistakes, then continue.";
       } else {
         statusEl.textContent = "Could not read that photo clearly. Type the questions in the box.";
       }
@@ -187,11 +186,11 @@
     if(!url){ $("notes-ocr").textContent = "Paste a link first."; return; }
     if(!/^https?:\/\//i.test(url)) url = "https://" + url;
     $("notes-ocr").textContent = "Loading page text…";
-    fetch("https://r.jina.ai/" + url).then(function(r){ if(!r.ok) throw new Error("Could not load"); return r.text(); }).then(function(txt){
+    fetch("https://r.jina.ai/" + url).then(function(r){ if(!r.ok) throw new Error("fail"); return r.text(); }).then(function(txt){
       txt = txt.replace(/^\s+|\s+$/g,"").slice(0,20000);
       if(txt.length < 40) throw new Error("Empty");
-      $("notes-text").value = txt; $("notes-ocr").textContent = "Page text loaded. Make notes when ready.";
-    }).catch(function(){ $("notes-ocr").textContent = "Could not open that link. Copy the text in Safari and paste below."; });
+      $("notes-text").value = txt; $("notes-ocr").textContent = "Page text loaded.";
+    }).catch(function(){ $("notes-ocr").textContent = "Could not open that link. Paste the text below."; });
   };
   function makeNotes(raw, style){
     raw = raw.replace(/^\s+|\s+$/g,""); if(!raw) return null;
@@ -203,56 +202,63 @@
     var picks = sents.slice(0, n), lines = [];
     if(style==="short"){ lines.push("Short notes"); lines.push(""); for(var i=0;i<picks.length;i++) lines.push("• "+picks[i].slice(0,120)); }
     else if(style==="medium"){ lines.push("Medium notes"); lines.push(""); for(var i=0;i<picks.length;i++) lines.push((i+1)+". "+picks[i].slice(0,180)); }
-    else { lines.push("Longer notes (~3 sentences per idea)"); lines.push(""); for(var i=0;i<picks.length;i+=3){ var group = picks.slice(i,i+3); lines.push("Note "+(Math.floor(i/3)+1)); for(var j=0;j<group.length;j++) lines.push(group[j].slice(0,200)); lines.push(""); } }
+    else { lines.push("Longer notes"); lines.push(""); for(var i=0;i<picks.length;i+=3){ var group = picks.slice(i,i+3); lines.push("Note "+(Math.floor(i/3)+1)); for(var j=0;j<group.length;j++) lines.push(group[j].slice(0,200)); lines.push(""); } }
     lines.push("────────"); lines.push("Test tips: who/what/why · cause → effect · key names & dates");
     return lines.join("\n");
   }
   $("notes-btn").onclick = function(){
     var notes = makeNotes($("notes-text").value, noteStyle), out = $("notes-out");
-    if(!notes){ out.className = "panel show"; out.innerHTML = '<div class="t">Notes</div>Add a photo, load a link, or paste text first.'; return; }
+    if(!notes){ out.className = "panel show"; out.innerHTML = '<div class="t">Notes</div>Add a photo, link, or text first.'; return; }
     out.className = "panel show"; out.innerHTML = '<div class="t">'+esc(noteStyle)+' notes</div>'+esc(notes);
   };
   var chat = $("chat");
+  var liveEl = null;
   function bubble(who, text, meta){
-    var d = document.createElement("div"); d.className = "b "+(who==="me"?"me":"ai");
-    d.innerHTML = esc(text)+(meta?"<small>"+esc(meta)+"</small>":""); chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+    var d = document.createElement("div");
+    d.className = "b "+(who==="me"?"me":"ai");
+    d.innerHTML = esc(text)+(meta?"<small>"+esc(meta)+"</small>":"");
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
   }
-  bubble("ai","For books type: \"Title\" by Author\nI write a short description you can read here — not just links.");
+  function startLive(){
+    var d = document.createElement("div"); d.className = "b ai";
+    d.innerHTML = '<span class="live" id="live-status">Starting…</span>';
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight; liveEl = d; return d;
+  }
+  function setLive(msg){
+    if(!liveEl) return;
+    var el = liveEl.querySelector(".live"); if(el) el.textContent = msg;
+    chat.scrollTop = chat.scrollHeight;
+  }
+  function endLive(){ if(liveEl && liveEl.parentNode) liveEl.parentNode.removeChild(liveEl); liveEl = null; }
+  function bubbleHTML(html){
+    var d = document.createElement("div"); d.className = "b ai fade-in"; d.innerHTML = html;
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
+  }
+  bubble("ai","Type a book title (author optional).\nI search Open Library & Wikipedia and write a short description with the cover.");
   var STOP = {the:1,a:1,an:1,and:1,or:1,of:1,in:1,on:1,to:1,for:1,is:1,it:1,this:1,that:1,with:1,from:1,by:1,as:1,at:1,be:1,was:1,were:1,are:1,about:1,book:1,novel:1,story:1,read:1,reading:1,written:1,author:1,its:1,his:1,her:1,their:1,they:1,who:1,what:1,when:1,where:1,which:1,how:1,can:1,you:1,i:1,me:1,my:1,we:1,our:1,so:1,but:1,if:1,then:1,than:1,also:1,just:1,like:1,one:1,some:1,have:1,has:1,had:1,do:1,does:1,did:1,not:1,please:1,help:1,need:1,want:1,tell:1,explain:1,summary:1,called:1,named:1,find:1,search:1};
+  function cleanQuery(msg){
+    var q = msg.replace(/^\s+|\s+$/g,"");
+    var prefixes = ["what is the ","what is ","explain ","tell me about ","about ","summarize ","i am reading ","i'm reading ","the book ","book called ","find ","search for ","look up "];
+    var lower = q.toLowerCase();
+    for(var i=0;i<prefixes.length;i++){ if(lower.indexOf(prefixes[i])===0){ q = q.slice(prefixes[i].length); lower = q.toLowerCase(); } }
+    return q.replace(/[?.!]+$/g,"").replace(/^\s+|\s+$/g,"");
+  }
   function extractBookHints(msg){
-    var raw = msg.replace(/^\s+|\s+$/g,""), title = null, author = null;
+    var raw = msg.replace(/^\s+|\s+$/g,""); var title = null, author = null;
     var m = raw.match(/"([^"]{2,100})"/); if(m) title = m[1];
     var by = raw.match(/(.+?)\s+by\s+([A-Z][a-zA-Z.\-']+(?:\s+[A-Z][a-zA-Z.\-']+){0,3})/);
     if(by){ var t = by[1].replace(/^[\s"']+|[\s"']+$/g,""); if(!title && t.length > 1) title = t.replace(/^(the book|book|novel)\s+/i,""); author = by[2].replace(/^\s+|\s+$/g,""); }
-    var auth = raw.match(/(?:author|written by|wrote)\s*[:\-]?\s*([A-Z][a-zA-Z.\-']+(?:\s+[A-Z][a-zA-Z.\-']+){0,3})/i);
-    if(auth && !author) author = auth[1].replace(/^\s+|\s+$/g,"");
-    return { title: title, author: author, raw: raw };
-  }
-  function extractQueries(msg){
-    var raw = msg.replace(/^\s+|\s+$/g,""), queries = [], hints = extractBookHints(msg);
-    if(hints.title) queries.push(hints.title);
-    if(hints.title && hints.author) queries.push(hints.title + " " + hints.author);
-    if(hints.author) queries.push(hints.author);
-    var qm = raw.match(/"([^"]{2,80})"/); if(qm) queries.push(qm[1]);
-    var q = raw, prefixes = ["what is the ","what is ","explain ","tell me about ","about ","summarize ","i am reading ","i'm reading ","the book ","book called ","find ","search for ","look up "];
-    var lower = q.toLowerCase();
-    for(var i=0;i<prefixes.length;i++){ if(lower.indexOf(prefixes[i])===0){ q = q.slice(prefixes[i].length); lower = q.toLowerCase(); } }
-    q = q.replace(/[?.!]+$/g,"").replace(/^\s+|\s+$/g,""); if(q) queries.push(q);
-    var first = q.split(/[.!?]/)[0].replace(/^\s+|\s+$/g,""); if(first && first.length>3 && first!==q) queries.push(first);
-    var words = q.replace(/[^a-zA-Z0-9\s\-']/g," ").split(/\s+/), keys = [];
-    for(var i=0;i<words.length;i++){ if(words[i].length<2) continue; if(STOP[words[i].toLowerCase()]) continue; keys.push(words[i]); }
-    if(keys.length>=2){ queries.push(keys.slice(0,6).join(" ")); queries.push(keys.slice(0,4).join(" ")); }
-    if(keys.length) queries.push(keys.slice(0,5).join(" ")+" book");
-    var seen={}, out=[];
-    for(var i=0;i<queries.length;i++){ var item = queries[i].replace(/^\s+|\s+$/g,""); if(!item||item.length<2) continue; var k=item.toLowerCase(); if(seen[k]) continue; seen[k]=1; out.push(item); }
-    return out.length?out:[raw.slice(0,80)];
+    if(!title) title = cleanQuery(raw);
+    return { title: title, author: author };
   }
   function openLibrarySearch(q){
-    return fetch("https://openlibrary.org/search.json?q="+encodeURIComponent(q)+"&limit=6").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+    return fetch("https://openlibrary.org/search.json?q="+encodeURIComponent(q)+"&limit=8").then(function(r){
+      if(!r.ok) throw new Error("Open Library unavailable"); return r.json();
+    }).then(function(data){
       var docs = data.docs || [], hits = [];
       for(var i=0;i<docs.length;i++){
         var d = docs[i]; if(!d.title) continue;
-        hits.push({ kind:"book", title:d.title, authors:(d.author_name||[]).slice(0,3).join(", "), year:d.first_publish_year||"", subjects:(d.subject||[]).slice(0,6).join(", "), workKey:d.key||"", url:d.key?("https://openlibrary.org"+d.key):("https://openlibrary.org/search?q="+encodeURIComponent(d.title)) });
+        hits.push({ kind:"book", title:d.title, authors:(d.author_name||[]).slice(0,3).join(", "), year:d.first_publish_year||"", subjects:(d.subject||[]).slice(0,8), workKey:d.key||"", coverId:d.cover_i||null, editionCount:d.edition_count||0 });
       }
       return hits;
     });
@@ -263,112 +269,117 @@
       var desc = data.description; if(!desc) return "";
       if(typeof desc === "object" && desc.value) desc = desc.value;
       if(typeof desc !== "string") return "";
-      return desc.replace(/\s+/g," ").replace(/^\s+|\s+$/g,"").slice(0,900);
+      return desc.replace(/\s+/g," ").replace(/^\s+|\s+$/g,"").slice(0,1200);
     }).catch(function(){ return ""; });
   }
-  function rewriteShort(title, authors, year, subjects, rawDesc){
-    var lines = [], head = title;
-    if(authors) head += " — " + authors; if(year) head += " (" + year + ")";
-    lines.push(head); lines.push("");
-    if(rawDesc && rawDesc.length > 40){
-      var clean = rawDesc.replace(/\{\{[^}]*\}\}/g,"").replace(/\[\[[^\]|]*\|([^\]]+)\]\]/g,"$1").replace(/\[\[|\]\]/g,"").replace(/<[^>]+>/g,"").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
-      var bits = clean.replace(/([.!?])/g,"$1\n").split("\n"), out = [];
-      for(var i=0;i<bits.length && out.length < 3;i++){ var s = bits[i].replace(/^\s+|\s+$/g,""); if(s.length > 25) out.push(s); }
-      lines.push("What it is about:");
-      if(out.length) for(var i=0;i<out.length;i++) lines.push(out[i]);
-      else lines.push(clean.slice(0,320)+(clean.length>320?"…":""));
-    } else if(subjects){
-      lines.push("What it is about:");
-      lines.push("This book is often tagged: " + subjects.split(", ").slice(0,4).join(", ") + ".");
-      lines.push("Use the title and author above with your class notes or library.");
-    } else {
-      lines.push("What it is about:");
-      lines.push("A listed work by "+(authors||"the author")+". Open Library has this title on record"+(year?" from around "+year:"")+".");
-    }
-    if(subjects){ lines.push(""); lines.push("Themes / topics: " + subjects.split(", ").slice(0,5).join(", ")); }
-    return lines.join("\n");
-  }
-  function rewriteWiki(title, extract){
-    var clean = (extract||"").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
-    var bits = clean.replace(/([.!?])/g,"$1\n").split("\n"), out = [];
-    for(var i=0;i<bits.length && out.length < 4;i++){ var s = bits[i].replace(/^\s+|\s+$/g,""); if(s.length > 30) out.push(s); }
-    return title + "\n\n" + (out.length ? out.join(" ") : clean.slice(0,500));
-  }
-  function wikiOpenSearch(query){
-    return fetch("https://en.wikipedia.org/w/api.php?action=opensearch&search="+encodeURIComponent(query)+"&limit=6&namespace=0&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
-      var titles=data[1]||[], urls=data[3]||[], hits=[]; for(var i=0;i<titles.length;i++) hits.push({kind:"wiki", title:titles[i], url:urls[i]}); return hits;
-    });
-  }
-  function wikiFullSearch(query){
-    return fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=6&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
-      var arr=(data.query&&data.query.search)?data.query.search:[], hits=[]; for(var i=0;i<arr.length;i++) hits.push({kind:"wiki", title:arr[i].title, url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(arr[i].title.replace(/ /g,"_"))}); return hits;
+  function wikiSearch(q){
+    return fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(q)+"&srlimit=4&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+      var arr = (data.query && data.query.search) ? data.query.search : [];
+      return arr.map(function(x){ return { title: x.title }; });
     });
   }
   function wikiExtract(title){
-    return fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=1600&titles="+encodeURIComponent(title)+"&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
-      var pages=data.query&&data.query.pages?data.query.pages:{}; var keys=Object.keys(pages); if(!keys.length) return null;
-      var p=pages[keys[0]]; if(p.missing!==undefined) return null; var extract=(p.extract||"").trim(); if(!extract) return null;
-      return {kind:"wiki", title:p.title, extract:extract.slice(0,1600), url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"))};
+    return fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=1800&titles="+encodeURIComponent(title)+"&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+      var pages = data.query && data.query.pages ? data.query.pages : {}; var keys = Object.keys(pages);
+      if(!keys.length) return null; var p = pages[keys[0]]; if(p.missing !== undefined) return null;
+      var extract = (p.extract||"").trim(); if(!extract) return null;
+      return { title: p.title, extract: extract.slice(0,1800) };
     });
   }
-  function mergeHits(arrays){
-    var seen={}, out=[]; for(var a=0;a<arrays.length;a++){ var hits=arrays[a]||[]; for(var i=0;i<hits.length;i++){ var id=(hits[i].kind||"")+"|"+hits[i].title; if(!seen[id]){ seen[id]=1; out.push(hits[i]); } } } return out;
+  function scoreBook(h, titleQ, authorQ){
+    var t = (h.title||"").toLowerCase(), q = (titleQ||"").toLowerCase(), s = 0;
+    if(t === q) s += 50; if(t.indexOf(q) === 0) s += 25; if(t.indexOf(q) !== -1) s += 15;
+    var qw = q.split(/\s+/).filter(function(w){ return w.length > 2; });
+    for(var i=0;i<qw.length;i++) if(t.indexOf(qw[i]) !== -1) s += 4;
+    if(authorQ){ var a = (h.authors||"").toLowerCase(), ap = authorQ.toLowerCase().split(/\s+/); for(var i=0;i<ap.length;i++) if(a.indexOf(ap[i]) !== -1) s += 12; }
+    if(h.editionCount > 20) s += 5; if(h.coverId) s += 3; if(h.year) s += 1;
+    return s;
   }
-  function scoreHit(h, keyWords, hints){
-    var t=(h.title||"").toLowerCase(), s=0;
-    for(var i=0;i<keyWords.length;i++) if(t.indexOf(keyWords[i].toLowerCase())!==-1) s+=3;
-    if(hints.title && t.indexOf(hints.title.toLowerCase().slice(0,10))!==-1) s+=10;
-    if(hints.author && (h.authors||"").toLowerCase().indexOf(hints.author.toLowerCase().split(/\s+/).pop())!==-1) s+=10;
-    if(h.kind==="book") s+=3; return s;
+  function rewriteDesc(raw){
+    if(!raw) return "";
+    var clean = raw.replace(/\{\{[^}]*\}\}/g,"").replace(/\[\[[^\]|]*\|([^\]]+)\]\]/g,"$1").replace(/\[\[|\]\]/g,"").replace(/<[^>]+>/g,"").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
+    var bits = clean.replace(/([.!?])/g,"$1\n").split("\n"), out = [];
+    for(var i=0;i<bits.length && out.length < 4;i++){ var s = bits[i].replace(/^\s+|\s+$/g,""); if(s.length > 28) out.push(s); }
+    return out.length ? out.join(" ") : clean.slice(0, 450);
   }
+  function coverUrl(coverId){ if(!coverId) return ""; return "https://covers.openlibrary.org/b/id/"+coverId+"-M.jpg"; }
+  function delay(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
   function sendLearn(){
-    var input=$("learn-in"); var msg=input.value.replace(/^\s+|\s+$/g,""); if(!msg) return;
-    bubble("me",msg); input.value=""; $("learn-btn").disabled=true;
-    bubble("ai","…","finding books & writing short descriptions…");
-    function done(text, meta){
-      if(chat.lastChild) chat.removeChild(chat.lastChild);
-      bubble("ai", text, meta||""); $("srcs").innerHTML = ""; $("learn-btn").disabled=false; input.focus();
-    }
-    var hints=extractBookHints(msg), queries=extractQueries(msg).slice(0,5), jobs=[];
-    for(var i=0;i<queries.length;i++){
-      jobs.push(openLibrarySearch(queries[i]).catch(function(){return[];}));
-      jobs.push(wikiOpenSearch(queries[i]).catch(function(){return[];}));
-      jobs.push(wikiFullSearch(queries[i]).catch(function(){return[];}));
-    }
-    if(hints.title){
-      jobs.push(openLibrarySearch(hints.title).catch(function(){return[];}));
-      if(hints.author){
-        jobs.push(openLibrarySearch(hints.title+" "+hints.author).catch(function(){return[];}));
-        jobs.push(openLibrarySearch(hints.author+" "+hints.title).catch(function(){return[];}));
-      }
-    }
-    Promise.all(jobs).then(function(results){
-      var hits=mergeHits(results);
-      var keyWords=msg.replace(/[^a-zA-Z0-9\s\-']/g," ").split(/\s+/).filter(function(w){return w.length>2&&!STOP[w.toLowerCase()];});
-      if(!hits.length){ done("I could not find that yet.\n\nTry:\n\"Exact Title\" by Author Name\n\nExample: \"The Giver\" by Lois Lowry", ""); return null; }
-      hits.sort(function(a,b){ return scoreHit(b,keyWords,hints)-scoreHit(a,keyWords,hints); });
-      var books=hits.filter(function(h){return h.kind==="book";}).slice(0,3);
-      var wikis=hits.filter(function(h){return h.kind==="wiki";}).slice(0,2);
-      var descJobs = books.map(function(b){ return fetchBookDescription(b.workKey).then(function(desc){ b.description = desc; return b; }); });
-      var wikiJobs = wikis.map(function(h){ return wikiExtract(h.title).then(function(ex){ return ex; }).catch(function(){ return null; }); });
-      return Promise.all([Promise.all(descJobs), Promise.all(wikiJobs)]);
-    }).then(function(pair){
-      if(!pair) return;
-      var books = pair[0] || [], extracts = (pair[1] || []).filter(function(x){ return x; }), parts = [];
-      if(books.length){
-        parts.push("Here is a short description of what I found:"); parts.push("");
-        for(var i=0;i<books.length;i++){ parts.push("--- Book "+(i+1)+" ---"); parts.push(rewriteShort(books[i].title, books[i].authors, books[i].year, books[i].subjects, books[i].description)); parts.push(""); }
-      }
-      if(extracts.length){
-        if(!books.length) parts.push("Short overview:"); else parts.push("Extra background:"); parts.push("");
-        for(var i=0;i<extracts.length;i++){ parts.push(rewriteWiki(extracts[i].title, extracts[i].extract)); parts.push(""); }
-      }
-      if(!parts.length){ done("Found a title but no description. Try another wording.", ""); return; }
-      parts.push("Ask me for themes, characters, or an even simpler summary if you need it.");
-      done(parts.join("\n"), books.length ? (books.length+" book"+(books.length>1?"s":"")) : "overview");
-    }).catch(function(e){ done("Error: "+e.message, ""); });
+    var input = $("learn-in"); var msg = input.value.replace(/^\s+|\s+$/g,""); if(!msg) return;
+    bubble("me", msg); input.value = ""; $("learn-btn").disabled = true; startLive();
+    var hints = extractBookHints(msg); var titleQ = hints.title || cleanQuery(msg); var authorQ = hints.author || "";
+    Promise.resolve()
+      .then(function(){ setLive('Searching Open Library for "'+titleQ+'"…'); return delay(200); })
+      .then(function(){ return openLibrarySearch(titleQ+(authorQ?" "+authorQ:"")); })
+      .then(function(books){
+        setLive("Open Library: "+books.length+" matches · ranking best title…");
+        books.sort(function(a,b){ return scoreBook(b, titleQ, authorQ) - scoreBook(a, titleQ, authorQ); });
+        return books;
+      })
+      .then(function(books){
+        if(!books.length){
+          setLive("No Open Library hit · trying Wikipedia…");
+          return wikiSearch(titleQ).then(function(w){ return { books: [], wikiTitles: w }; });
+        }
+        var top = books[0];
+        setLive("Best match: "+top.title+(top.authors?" — "+top.authors:"")+" · loading description…");
+        return fetchBookDescription(top.workKey).then(function(desc){
+          top.description = desc;
+          return { books: books.slice(0,1), wikiTitles: [] };
+        });
+      })
+      .then(function(pack){
+        setLive("Checking Wikipedia for more detail…");
+        var wikiQ = pack.books.length ? pack.books[0].title+(pack.books[0].authors?" "+pack.books[0].authors.split(",")[0]:"") : titleQ;
+        return wikiSearch(wikiQ).then(function(titles){
+          pack.wikiTitles = titles;
+          if(!titles.length) return pack;
+          setLive("Reading Wikipedia: "+titles[0].title+"…");
+          return wikiExtract(titles[0].title).then(function(ex){ pack.wiki = ex; return pack; }).catch(function(){ return pack; });
+        }).catch(function(){ return pack; });
+      })
+      .then(function(pack){
+        endLive(); $("learn-btn").disabled = false; input.focus();
+        if((!pack.books || !pack.books.length) && !pack.wiki){
+          bubble("ai", "I could not find a solid match for that title.\n\nTry the full title, or add the author:\n\"Title\" by Author");
+          return;
+        }
+        if(pack.books && pack.books.length){
+          var b = pack.books[0];
+          var desc = rewriteDesc(b.description);
+          if(!desc && pack.wiki) desc = rewriteDesc(pack.wiki.extract);
+          if(!desc && b.subjects && b.subjects.length){
+            desc = "A book often filed under: "+b.subjects.slice(0,5).join(", ")+". "+(b.year?"First published around "+b.year+". ":"")+"This is the closest Open Library match for your title.";
+          }
+          if(!desc) desc = "Matched on Open Library"+(b.year?" (about "+b.year+")":"")+", but no long blurb was listed.";
+          var cover = coverUrl(b.coverId);
+          var html = "";
+          if(cover){
+            html += '<div class="book-card"><img src="'+esc(cover)+'" alt="cover" onerror="this.style.display=\'none\'" />';
+            html += '<div class="info"><strong>'+esc(b.title)+'</strong>';
+            html += '<div class="meta">'+esc((b.authors||"Unknown author")+(b.year?" · "+b.year:""))+'</div>';
+            html += esc(desc)+'</div></div>';
+          } else {
+            html += '<strong>'+esc(b.title)+'</strong><br/>';
+            html += '<span style="color:#a1a1aa;font-size:12px">'+esc((b.authors||"")+(b.year?" · "+b.year:""))+'</span><br/><br/>'+esc(desc);
+          }
+          if(b.subjects && b.subjects.length) html += '<br/><br/><small>Topics: '+esc(b.subjects.slice(0,6).join(", "))+'</small>';
+          bubbleHTML(html);
+        }
+        if(pack.wiki && pack.wiki.extract){
+          var wdesc = rewriteDesc(pack.wiki.extract);
+          if(wdesc && (!pack.books || !pack.books.length || wdesc.length > 80)){
+            bubbleHTML("<strong>"+esc(pack.wiki.title)+"</strong><br/><br/>"+esc(wdesc));
+          }
+        }
+        bubble("ai", "Want themes, characters, or a simpler summary? Just ask.");
+      })
+      .catch(function(e){
+        endLive(); $("learn-btn").disabled = false;
+        bubble("ai", "Something went wrong: "+e.message+"\nCheck your connection and try again.");
+      });
   }
-  $("learn-btn").onclick=sendLearn;
-  $("learn-in").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); sendLearn(); } };
+  $("learn-btn").onclick = sendLearn;
+  $("learn-in").onkeydown = function(e){ if(e.key === "Enter"){ e.preventDefault(); sendLearn(); } };
   setHwStep(1);
 })();
