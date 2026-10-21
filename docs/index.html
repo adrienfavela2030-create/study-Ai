@@ -19,7 +19,7 @@ html,body{margin:0;padding:0;height:100%;background:#0a0a0a;color:#f2f2f2;font-f
 h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
 .tag{color:#888;margin:0 0 24px;font-size:16px}
 .chiprow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.chip,.pill,.btn,.tab,.send{border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit}
+.chip,.pill,.btn,.tab,.send,.filebtn{border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit}
 .chip{background:#161616;border:1px solid #2c2c2c;color:#f2f2f2;border-radius:999px;padding:12px 18px;font-size:15px;font-weight:600}
 .head{padding:16px 0 10px;flex-shrink:0}
 .head h2{margin:0;font-size:22px;font-weight:700}
@@ -30,8 +30,12 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
 .pill.on{background:#fff;color:#0a0a0a;border-color:#fff}
 .inp,.area{display:block;width:100%;background:#161616;border:1px solid #2c2c2c;border-radius:14px;color:#f2f2f2;padding:14px;font-size:16px;font-family:inherit;margin:0 0 12px;outline:none;-webkit-appearance:none}
 .inp::placeholder,.area::placeholder{color:#666}
-.area{min-height:120px;resize:vertical}
-.btn{display:block;width:100%;background:#fff;color:#0a0a0a;border-radius:14px;padding:15px;font-size:16px;font-weight:700}
+.area{min-height:110px;resize:vertical}
+.btn{display:block;width:100%;background:#fff;color:#0a0a0a;border-radius:14px;padding:15px;font-size:16px;font-weight:700;margin-top:4px}
+.btn:disabled{opacity:.5}
+.filebtn{display:inline-block;background:#161616;border:1px dashed #444;color:#ccc;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600;margin-bottom:12px}
+.filebtn input{display:none}
+.prev{max-width:100%;max-height:160px;border-radius:12px;margin-bottom:12px;display:none}
 .out{display:none;margin-top:14px;background:#161616;border:1px solid #2c2c2c;border-radius:14px;padding:14px;white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.5}
 .out.show{display:block}
 .out b{display:block;font-size:12px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
@@ -51,6 +55,7 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
 .tabs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid #2c2c2c;background:#0a0a0a;padding-bottom:env(safe-area-inset-bottom,0px);min-height:56px;flex-shrink:0}
 .tab{background:transparent;color:#888;font-size:12px;font-weight:600;padding:14px 4px}
 .tab.on{color:#fff}
+.status{font-size:13px;color:#888;margin:0 0 10px}
 </style>
 </head>
 <body>
@@ -69,15 +74,20 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
       </div>
     </div>
     <div id="page-homework" class="page">
-      <div class="head"><h2>Homework</h2><p>Paste a question · pick a mode</p></div>
+      <div class="head"><h2>Homework</h2><p>Paste text or upload a photo of the worksheet</p></div>
       <div class="scroll">
         <div class="pills" id="hw-modes">
           <button type="button" class="pill on" data-m="help">Help me understand</button>
           <button type="button" class="pill" data-m="answer">Give answer</button>
           <button type="button" class="pill" data-m="both">Answer + explain</button>
         </div>
+        <label class="filebtn">Upload photo / document
+          <input type="file" id="hw-file" accept="image/*,.pdf,image/heic" />
+        </label>
+        <img id="hw-prev" class="prev" alt="Preview" />
+        <p class="status" id="hw-ocr-status"></p>
         <input class="inp" id="hw-nums" type="text" placeholder="Question # (optional)" />
-        <textarea class="area" id="hw-text" placeholder="Paste your question here…"></textarea>
+        <textarea class="area" id="hw-text" placeholder="Paste the question, or upload a photo and we will try to read it…"></textarea>
         <button type="button" class="btn" id="hw-btn">Solve</button>
         <div class="out" id="hw-out"></div>
       </div>
@@ -97,12 +107,12 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
       </div>
     </div>
     <div id="page-learn" class="page">
-      <div class="head"><h2>Learn</h2><p>Ask · research the web</p></div>
+      <div class="head"><h2>Learn</h2><p>Ask · research several Wikipedia pages</p></div>
       <div class="chatbox" id="chat"></div>
       <div class="comp">
         <label class="toggle"><input type="checkbox" id="web-on" checked /> Web research</label>
         <div class="row">
-          <input class="inp" id="learn-in" type="text" placeholder="Ask anything…" />
+          <input class="inp" id="learn-in" type="text" placeholder="Book, topic, or question…" />
           <button type="button" class="send" id="learn-btn">Go</button>
         </div>
         <div class="srcs" id="srcs"></div>
@@ -116,6 +126,7 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
     <button type="button" class="tab" id="tab-learn">Learn</button>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 (function(){
   function $(id){ return document.getElementById(id); }
@@ -124,10 +135,8 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
     for(var i=0;i<pages.length;i++) pages[i].classList.remove("on");
     var tabs = document.querySelectorAll(".tab");
     for(var j=0;j<tabs.length;j++) tabs[j].classList.remove("on");
-    var p = $("page-"+name);
-    if(p) p.classList.add("on");
-    var t = $("tab-"+name);
-    if(t) t.classList.add("on");
+    var p = $("page-"+name); if(p) p.classList.add("on");
+    var t = $("tab-"+name); if(t) t.classList.add("on");
   }
   $("tab-home").onclick = function(){ show("home"); };
   $("tab-homework").onclick = function(){ show("homework"); };
@@ -138,43 +147,69 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
   $("go-learn").onclick = function(){ show("learn"); };
   var hwMode = "help";
   var noteStyle = "light";
-  var hwPills = $("hw-modes").getElementsByClassName("pill");
-  for(var i=0;i<hwPills.length;i++){
-    hwPills[i].onclick = (function(btn){
-      return function(){
-        for(var k=0;k<hwPills.length;k++) hwPills[k].classList.remove("on");
-        btn.classList.add("on");
-        hwMode = btn.getAttribute("data-m");
-      };
-    })(hwPills[i]);
+  function setupPills(id, attr, cb){
+    var root = $(id);
+    var pills = root.getElementsByClassName("pill");
+    for(var i=0;i<pills.length;i++){
+      pills[i].onclick = (function(btn){
+        return function(){
+          for(var k=0;k<pills.length;k++) pills[k].classList.remove("on");
+          btn.classList.add("on");
+          cb(btn.getAttribute(attr));
+        };
+      })(pills[i]);
+    }
   }
-  var notePills = $("note-modes").getElementsByClassName("pill");
-  for(var i=0;i<notePills.length;i++){
-    notePills[i].onclick = (function(btn){
-      return function(){
-        for(var k=0;k<notePills.length;k++) notePills[k].classList.remove("on");
-        btn.classList.add("on");
-        noteStyle = btn.getAttribute("data-s");
-      };
-    })(notePills[i]);
-  }
+  setupPills("hw-modes", "data-m", function(v){ hwMode = v; });
+  setupPills("note-modes", "data-s", function(v){ noteStyle = v; });
   function esc(s){
     return String(s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">");
   }
+  $("hw-file").onchange = function(){
+    var f = this.files && this.files[0];
+    if(!f) return;
+    var status = $("hw-ocr-status");
+    var prev = $("hw-prev");
+    if(f.type.indexOf("image") === 0){
+      var url = URL.createObjectURL(f);
+      prev.src = url;
+      prev.style.display = "block";
+      status.textContent = "Reading text from photo… (may take a few seconds)";
+      if(typeof Tesseract === "undefined"){
+        status.textContent = "Photo saved. Type or paste the question text if reading fails.";
+        return;
+      }
+      Tesseract.recognize(f, "eng", { logger: function(){} }).then(function(result){
+        var text = (result && result.data && result.data.text) ? result.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim() : "";
+        if(text){
+          var box = $("hw-text");
+          box.value = box.value ? (box.value + "\n\n" + text) : text;
+          status.textContent = "Text read from photo. Check and edit if needed, then Solve.";
+        } else {
+          status.textContent = "Could not read clear text. Type the question or try a clearer photo.";
+        }
+      }).catch(function(){
+        status.textContent = "Could not read photo. Type the question below.";
+      });
+    } else {
+      prev.style.display = "none";
+      status.textContent = "For PDFs, paste the text from the document. Photos of pages work best.";
+    }
+  };
   $("hw-btn").onclick = function(){
     var t = $("hw-text").value.replace(/^\s+|\s+$/g,"");
     var nums = $("hw-nums").value.replace(/^\s+|\s+$/g,"");
     var out = $("hw-out");
-    if(!t){ out.className="out show"; out.innerHTML="<b>Result</b>Paste a question first."; return; }
+    if(!t){ out.className="out show"; out.innerHTML="<b>Result</b>Paste a question or upload a photo first."; return; }
     var lines = ["What you are being asked","- Read the question carefully."];
     if(nums) lines.push("- Focus on #: "+nums);
     lines.push("","Break it down","- Key words: what / why / how / calculate / explain","- What do you already know?","- What is missing?","");
     if(hwMode==="help"){
-      lines.push("Help me understand","1. Restate in your own words","2. Name the topic","3. One fact or formula","4. First small step only","5. If stuck, say what is confusing","","Your question:",t.slice(0,800));
+      lines.push("Help me understand","1. Restate in your own words","2. Name the topic","3. One fact or formula","4. First small step only","5. If stuck, say what is confusing","","Your question:",t.slice(0,1200));
     } else if(hwMode==="answer"){
-      lines.push("Direct approach","- Use the question + your materials","- Math: show steps","- Reading: cite a sentence","","Draft answer: _______________","","Question:",t.slice(0,800));
+      lines.push("Direct approach","- Use the question + your materials","- Math: show steps","- Reading: cite a sentence","","Draft answer: _______________","","Question:",t.slice(0,1200));
     } else {
-      lines.push("Answer + explain","1. One-sentence answer","2. Why","3. Evidence or steps","","Answer: ...","Because: ...","Evidence: ...","","Question:",t.slice(0,800));
+      lines.push("Answer + explain","1. One-sentence answer","2. Why","3. Evidence or steps","","Answer: ...","Because: ...","Evidence: ...","","Question:",t.slice(0,1200));
     }
     out.className="out show";
     out.innerHTML="<b>Result</b>"+esc(lines.join("\n"));
@@ -219,7 +254,75 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
     chat.appendChild(d);
     chat.scrollTop = chat.scrollHeight;
   }
-  bubble("ai","Ask something. Web research reads live Wikipedia pages.");
+  bubble("ai","Ask about a book, topic, or idea. Research opens several Wikipedia pages.");
+  function cleanQuery(msg){
+    var q = msg.replace(/^\s+|\s+$/g,"");
+    var prefixes = ["what is the ","what is ","what are ","who is ","who was ","explain ","define ","tell me about ","about ","summarize ","summary of ","i need help with ","help me with ","can you explain "];
+    var lower = q.toLowerCase();
+    for(var i=0;i<prefixes.length;i++){
+      if(lower.indexOf(prefixes[i])===0){
+        q = q.slice(prefixes[i].length);
+        lower = q.toLowerCase();
+        break;
+      }
+    }
+    q = q.replace(/[?.!]+$/g,"").replace(/^\s+|\s+$/g,"");
+    return q || msg;
+  }
+  function buildSearchList(q){
+    var list = [q];
+    var lower = q.toLowerCase();
+    if(lower.indexOf(" book")===-1 && lower.indexOf("novel")===-1){
+      list.push(q + " book");
+      list.push(q + " novel");
+    }
+    list.push(q + " (book)");
+    if(lower.indexOf("the ")===0) list.push(q.slice(4));
+    var seen = {}; var out = [];
+    for(var i=0;i<list.length;i++){
+      var k = list[i].toLowerCase();
+      if(!seen[k] && list[i]){ seen[k]=1; out.push(list[i]); }
+    }
+    return out;
+  }
+  function wikiOpenSearch(query){
+    var url = "https://en.wikipedia.org/w/api.php?action=opensearch&search="+encodeURIComponent(query)+"&limit=8&namespace=0&format=json&origin=*";
+    return fetch(url).then(function(r){
+      if(!r.ok) throw new Error("Search failed");
+      return r.json();
+    }).then(function(data){
+      var titles = data[1]||[]; var urls = data[3]||[]; var hits = [];
+      for(var i=0;i<titles.length;i++) hits.push({title:titles[i], url:urls[i]});
+      return hits;
+    });
+  }
+  function wikiExtract(title){
+    var url = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=1200&titles="+encodeURIComponent(title)+"&format=json&origin=*";
+    return fetch(url).then(function(r){
+      if(!r.ok) throw new Error("Page failed");
+      return r.json();
+    }).then(function(data){
+      var pages = data.query && data.query.pages ? data.query.pages : {};
+      var keys = Object.keys(pages);
+      if(!keys.length) return null;
+      var p = pages[keys[0]];
+      if(p.missing !== undefined) return null;
+      var extract = (p.extract||"").trim();
+      if(!extract) return null;
+      return { title: p.title, extract: extract.slice(0,1400), url: "https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_")) };
+    });
+  }
+  function mergeHits(arrays){
+    var seen = {}; var out = [];
+    for(var a=0;a<arrays.length;a++){
+      var hits = arrays[a]||[];
+      for(var i=0;i<hits.length;i++){
+        var t = hits[i].title;
+        if(!seen[t]){ seen[t]=1; out.push(hits[i]); }
+      }
+    }
+    return out;
+  }
   function sendLearn(){
     var input = $("learn-in");
     var msg = input.value.replace(/^\s+|\s+$/g,"");
@@ -228,7 +331,7 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
     bubble("me", msg);
     input.value = "";
     $("learn-btn").disabled = true;
-    bubble("ai", "…", useWeb?"searching…":"");
+    bubble("ai", "…", useWeb ? "searching several pages…" : "");
     function done(text, links, meta){
       if(chat.lastChild) chat.removeChild(chat.lastChild);
       bubble("ai", text, meta||"");
@@ -237,9 +340,7 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
       if(links && links.length){
         for(var i=0;i<links.length;i++){
           var a = document.createElement("a");
-          a.href = links[i].url;
-          a.target = "_blank";
-          a.rel = "noopener";
+          a.href = links[i].url; a.target = "_blank"; a.rel = "noopener";
           a.textContent = "["+(i+1)+"] "+links[i].title;
           box.appendChild(a);
         }
@@ -247,44 +348,55 @@ h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.03em}
       $("learn-btn").disabled = false;
       input.focus();
     }
-    if(!useWeb){
-      done("Turn on Web research for live pages.\n\nYou asked: "+msg, [], "");
-      return;
+    if(!useWeb){ done("Turn on Web research.\n\nYou asked: "+msg, [], ""); return; }
+    var q = cleanQuery(msg);
+    var searches = buildSearchList(q);
+    var promises = [];
+    for(var i=0;i<Math.min(3, searches.length);i++){
+      promises.push(wikiOpenSearch(searches[i]).catch(function(){ return []; }));
     }
-    var q = msg;
-    var prefixes = ["what is the ","what is ","what are ","who is ","explain ","define "];
-    var lower = q.toLowerCase();
-    for(var i=0;i<prefixes.length;i++){
-      if(lower.indexOf(prefixes[i])===0){
-        q = q.slice(prefixes[i].length).replace(/[?.!]+$/,"").replace(/^\s+|\s+$/g,"");
-        break;
+    Promise.all(promises).then(function(results){
+      var hits = mergeHits(results);
+      if(!hits.length){
+        done("No Wikipedia pages found for that.\n\nTry:\n- Exact book title\n- Author + title\n- Shorter keywords\n\nYou asked: "+msg, [], "");
+        return null;
       }
-    }
-    if(!q) q = msg;
-    var searchUrl = "https://en.wikipedia.org/w/api.php?action=opensearch&search="+encodeURIComponent(q)+"&limit=5&namespace=0&format=json&origin=*";
-    fetch(searchUrl).then(function(r){
-      if(!r.ok) throw new Error("Search failed");
-      return r.json();
-    }).then(function(data){
-      var titles = data[1]||[];
-      if(!titles.length){ done("Nothing found. Try a shorter topic.", [], ""); return null; }
-      var title = titles[0];
-      var extractUrl = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles="+encodeURIComponent(title)+"&format=json&origin=*";
-      return fetch(extractUrl).then(function(r2){
-        if(!r2.ok) throw new Error("Page failed");
-        return r2.json();
-      }).then(function(data2){
-        var pages = data2.query && data2.query.pages ? data2.query.pages : {};
-        var keys = Object.keys(pages);
-        if(!keys.length){ done("Could not open the page.", [], ""); return; }
-        var p = pages[keys[0]];
-        var extract = (p.extract||"").slice(0,1200);
-        var url = "https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"));
-        var reply = "About: "+msg+"\n\n["+p.title+"]\n"+extract+(extract.length>=1200?"…":"");
-        done(reply, [{title:p.title, url:url}], "Wikipedia");
+      var qWords = q.toLowerCase().split(/\s+/).filter(function(w){ return w.length>2; });
+      hits.sort(function(a,b){
+        function score(h){
+          var t = h.title.toLowerCase(); var s = 0;
+          for(var i=0;i<qWords.length;i++) if(t.indexOf(qWords[i])!==-1) s++;
+          return s;
+        }
+        return score(b)-score(a);
       });
+      var top = hits.slice(0,4);
+      var chain = Promise.resolve([]);
+      top.forEach(function(h){
+        chain = chain.then(function(acc){
+          return wikiExtract(h.title).then(function(ex){
+            if(ex) acc.push(ex);
+            return acc;
+          }).catch(function(){ return acc; });
+        });
+      });
+      return chain;
+    }).then(function(extracts){
+      if(extracts === null) return;
+      if(!extracts || !extracts.length){
+        done("Found titles but could not open page text. Try a different wording.", [], "");
+        return;
+      }
+      var parts = ["About: "+msg, "", "Found "+extracts.length+" page(s):", ""];
+      for(var i=0;i<extracts.length;i++){
+        parts.push("["+(i+1)+"] "+extracts[i].title);
+        parts.push(extracts[i].extract);
+        parts.push("");
+      }
+      parts.push("Open the source links below for the full pages.");
+      done(parts.join("\n"), extracts, extracts.length+" Wikipedia pages");
     }).catch(function(e){
-      done("Error: "+e.message+"\nCheck your internet.", [], "");
+      done("Error: "+e.message+"\nCheck your internet and try again.", [], "");
     });
   }
   $("learn-btn").onclick = sendLearn;
