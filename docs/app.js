@@ -52,25 +52,91 @@
     $("hw-s4").style.display = n===4 ? "block" : "none";
   }
 
+  function isGibberish(text){
+    if(!text || text.length < 8) return true;
+    var letters = (text.match(/[a-zA-Z]/g) || []).length;
+    var ratio = letters / text.length;
+    if(ratio < 0.45) return true;
+    var words = text.split(/\s+/).filter(function(w){ return w.length > 0; });
+    if(words.length < 3) return true;
+    var weird = 0;
+    for(var i=0;i<words.length;i++){
+      var w = words[i];
+      if(w.length >= 3 && !/[aeiouAEIOU]/.test(w) && /[a-zA-Z]{3,}/.test(w)) weird++;
+    }
+    if(weird / words.length > 0.35) return true;
+    var singles = 0;
+    for(var i=0;i<words.length;i++) if(words[i].length === 1) singles++;
+    if(singles / words.length > 0.25) return true;
+    return false;
+  }
+
+  function preprocessImage(file){
+    return new Promise(function(resolve){
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        try {
+          var maxW = 1600;
+          var scale = img.width > maxW ? maxW / img.width : (img.width < 600 ? 2 : 1.25);
+          var w = Math.round(img.width * scale);
+          var h = Math.round(img.height * scale);
+          var canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          var ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          var id = ctx.getImageData(0, 0, w, h);
+          var d = id.data;
+          for(var i=0;i<d.length;i+=4){
+            var g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+            g = (g - 128) * 1.35 + 128;
+            if(g < 0) g = 0; if(g > 255) g = 255;
+            if(g > 200) g = 255; else if(g < 90) g = 0;
+            d[i]=d[i+1]=d[i+2]=g;
+          }
+          ctx.putImageData(id, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(function(blob){ resolve(blob || file); }, "image/png");
+        } catch(e){ URL.revokeObjectURL(url); resolve(file); }
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
   function runOCR(file, statusEl, textEl, prevEl){
     if(prevEl){
       try{ prevEl.src = URL.createObjectURL(file); prevEl.style.display = "block"; }catch(e){}
     }
-    statusEl.textContent = "Reading text from photo…";
+    statusEl.textContent = "Improving photo & reading text… (10–30 sec)";
     if(typeof Tesseract === "undefined"){
-      statusEl.textContent = "Photo added. Type the text if reading is unavailable.";
+      statusEl.textContent = "Photo added. Type the questions in the box — auto-read is offline.";
       return;
     }
-    Tesseract.recognize(file, "eng").then(function(result){
+    preprocessImage(file).then(function(imgForOcr){
+      return Tesseract.recognize(imgForOcr, "eng", {
+        logger: function(m){
+          if(m && m.status === "recognizing text" && m.progress){
+            statusEl.textContent = "Reading text… " + Math.round(m.progress * 100) + "%";
+          }
+        }
+      });
+    }).then(function(result){
       var text = (result && result.data && result.data.text) ? result.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim() : "";
-      if(text && text.length > 5){
+      var conf = result && result.data && typeof result.data.confidence === "number" ? result.data.confidence : 0;
+      if(text && text.length > 5 && !isGibberish(text) && conf >= 35){
         textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
-        statusEl.textContent = "Text ready — check it, then continue.";
+        statusEl.textContent = "Text ready — fix any mistakes, then continue.";
+      } else if(text && text.length > 5 && !isGibberish(text)){
+        textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
+        statusEl.textContent = "Partial read — please fix the text before continuing.";
       } else {
-        statusEl.textContent = "Hard to read. Type the questions below.";
+        statusEl.textContent = "Could not read that photo clearly (blurry, dark, or handwriting). Type the questions in the box, or retake with brighter light and the page filling the frame.";
       }
     }).catch(function(){
-      statusEl.textContent = "Could not read photo. Type the text below.";
+      statusEl.textContent = "Could not read photo. Type the questions below.";
     });
   }
 
@@ -115,6 +181,10 @@
   $("hw-next1").onclick = function(){
     var t = $("hw-text").value.replace(/^\s+|\s+$/g,"");
     if(!t){ $("hw-ocr").textContent = "Add a photo or type the worksheet text first."; return; }
+    if(isGibberish(t)){
+      $("hw-ocr").textContent = "That text looks unreadable. Fix it or type the real questions before analyzing.";
+      return;
+    }
     hwQuestions = parseQuestions(t);
     var box = $("hw-qlist");
     box.innerHTML = "";
@@ -171,13 +241,13 @@
         lines.push("Explanation");
         lines.push("1. What this is asking in plain words");
         lines.push("2. What you need to know / use");
-        lines.push("3. Steps to think through (no final answer forced)");
+        lines.push("3. Steps to think through");
         lines.push("4. Common mistakes to avoid");
       } else if(hwMode==="answer"){
         lines.push("Answer approach");
         lines.push("• State the answer clearly when the question allows");
         lines.push("• For math: show the steps");
-        lines.push("• For reading: point to evidence in the text");
+        lines.push("• For reading: point to evidence");
         lines.push("Draft: _______________");
       } else {
         lines.push("Answer + Explanation");
@@ -245,16 +315,13 @@
     var picks = sents.slice(0, n);
     var lines = [];
     if(style==="short"){
-      lines.push("Short notes (for quick review)");
-      lines.push("");
+      lines.push("Short notes (for quick review)"); lines.push("");
       for(var i=0;i<picks.length;i++) lines.push("• "+picks[i].slice(0,120));
     } else if(style==="medium"){
-      lines.push("Medium notes (study + quiz ready)");
-      lines.push("");
+      lines.push("Medium notes (study + quiz ready)"); lines.push("");
       for(var i=0;i<picks.length;i++) lines.push((i+1)+". "+picks[i].slice(0,180));
     } else {
-      lines.push("Longer notes (~3 sentences per idea)");
-      lines.push("");
+      lines.push("Longer notes (~3 sentences per idea)"); lines.push("");
       for(var i=0;i<picks.length;i+=3){
         var group = picks.slice(i, i+3);
         lines.push("Note "+(Math.floor(i/3)+1));
