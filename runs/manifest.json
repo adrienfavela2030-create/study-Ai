@@ -1,0 +1,21 @@
+{
+  "numpy_smoke_v1": {
+    "status": "completed",
+    "when": "2026-10-22T02:28:31.964581+00:00",
+    "checkpoint": "runs/numpy_smoke_v1/checkpoint.json",
+    "note": "Small from-scratch experiment. Real training, real checkpoint."
+  },
+  "english_full_pretraining": {
+    "status": "not_started",
+    "note": "Requires the PyTorch pipeline and a larger corpus on suitable hardware."
+  },
+  "knowledge_training": {
+    "status": "not_started"
+  },
+  "educational_sft": {
+    "status": "not_started"
+  },
+  "ocr_training": {
+    "status": "not_started"
+  }
+}

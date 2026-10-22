@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study AI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Study AI</h1>
+  <p class="tagline">An AI trained from scratch for schoolwork</p>
+  <nav>
+    <button data-tool="homework" class="active">Homework AI</button>
+    <button data-tool="notes">AI Notes</button>
+    <button data-tool="learn">Learn With AI</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Homework AI -->
+  <section id="tool-homework" class="tool active">
+    <h2>Homework AI</h2>
+    <p class="hint">Upload or paste a worksheet, pick question numbers, and choose an answer mode.</p>
+    <input type="file" id="hw-file" accept="image/*,text/*">
+    <textarea id="hw-text" rows="6" placeholder="Paste the worksheet text here (or type it after uploading a photo)"></textarea>
+    <div class="row">
+      <input id="hw-selection" placeholder="Question numbers: 1, 3-5, or all" value="all">
+      <select id="hw-mode">
+        <option value="help_me_understand">Help Me Understand</option>
+        <option value="give_me_the_answer">Give Me the Answer</option>
+        <option value="answer_and_explain" selected>Answer + Explain</option>
+      </select>
+    </div>
+    <button id="hw-run">Solve</button>
+    <div id="hw-out" class="out"></div>
+  </section>
+
+  <!-- AI Notes -->
+  <section id="tool-notes" class="tool">
+    <h2>AI Notes</h2>
+    <p class="hint">Turn textbook pages or class notes into one of four note styles.</p>
+    <input type="file" id="notes-file" accept="image/*,text/*">
+    <textarea id="notes-text" rows="6" placeholder="Paste or type your notes here"></textarea>
+    <select id="notes-style">
+      <option value="light">Light — main ideas only</option>
+      <option value="medium" selected>Medium — ideas, details, vocabulary</option>
+      <option value="hard">Hard — detailed test prep</option>
+      <option value="short">Short — quick revision</option>
+    </select>
+    <button id="notes-run">Make Notes</button>
+    <div id="notes-out" class="out"></div>
+  </section>
+
+  <!-- Learn With AI -->
+  <section id="tool-learn" class="tool">
+    <h2>Learn With AI</h2>
+    <p class="hint">A guided session. Ask for web research any time.</p>
+    <div id="learn-log" class="chatlog"></div>
+    <div class="row">
+      <input id="learn-input" placeholder="What are you working on?">
+      <button id="learn-send">Send</button>
+      <button id="learn-search" title="Ask Study AI to research this on the web">Research this</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Study AI is an independent, from-scratch project. It never invents sources or pretends to know what it has not learned. <a href="#" id="health-link">System status</a></p>
+  <div id="health-out" class="out small"></div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

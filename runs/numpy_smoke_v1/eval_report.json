@@ -1,0 +1,14 @@
+{
+  "experiment": "numpy_smoke_v1",
+  "what_was_trained": "1-block decoder-only Transformer, 24-dim, next-character prediction",
+  "parameters": 10968,
+  "gradcheck_worst_relative_error": 1.4500082080053462e-07,
+  "val_loss_before": 4.26122314073206,
+  "val_loss_after": 3.380662465329683,
+  "test_loss_before": 4.070698310930138,
+  "test_loss_after": 3.3605679297545707,
+  "training_seconds": 1.7,
+  "sample_before": "The student mwzRT otiTbVnmovoSFoA,bnznmkR CnRb uIdxkxmq,dozboCdcHzMnonq,MTkFzMvMznHuznM",
+  "sample_after": "The student etn ds rsebl e eyyttd n adqnde e hn e n etetin rirl",
+  "honest_assessment": "Loss decreased on held-out validation and test splits, and the analytical backward pass matches finite differences. This proves the from-scratch training pipeline works. It does NOT establish English proficiency, comprehension, or schoolwork ability: the model is tiny and the corpus is small. Larger training and human evaluation are still required."
+}

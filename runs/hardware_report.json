@@ -1,0 +1,22 @@
+{
+  "inspection": {
+    "python": "3.14.8",
+    "machine": "x86_64",
+    "os": "Linux",
+    "cpu_count": 2,
+    "ram_gb": null,
+    "disk_free_gb": 14.0,
+    "torch": "not installed",
+    "cuda": false,
+    "cuda_device": null
+  },
+  "feasibility": {
+    "can_run_numpy_smoke": true,
+    "can_run_pytorch_pipeline": false,
+    "notes": [
+      "The NumPy smoke experiment runs on any CPU. The PyTorch scale-up pipeline needs PyTorch installed; a GPU is strongly recommended for anything beyond toy sizes.",
+      "No CUDA GPU detected: training a useful school assistant on CPU is not realistic. Expect character-level toy experiments only."
+    ],
+    "warning": "Training a useful language model and a separate image-reading model from scratch is a major computing task. This inspection makes no claim that the current hardware can complete it."
+  }
+}

@@ -1,0 +1,8 @@
+# Runtime (website backend)
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.0
+requests>=2.31
+
+# Training (scale-up pipeline; NumPy smoke experiment needs none of these)
+torch>=2.1
