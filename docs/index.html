@@ -1,92 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0a0c" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="Study AI" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#0b0c0f"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Study AI"/>
 <title>Study AI</title>
 <style>
-html,body{margin:0;padding:0;height:100%;background:#0a0a0c;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%;overflow:hidden}
+:root{
+  --bg:#0b0c0f;--bg-2:#12141a;--surface:#181b22;--surface-2:#1e222b;--elevated:#242833;
+  --border:#2a2f3a;--border-soft:#22262f;--text:#f2f3f5;--text-2:#a8adb8;--text-3:#6b7280;
+  --accent:#e8eaed;--accent-fg:#0b0c0f;--success:#34d399;--warning:#fbbf24;--error:#f87171;
+  --radius-sm:8px;--radius:12px;--radius-lg:16px;--radius-xl:20px;--radius-full:999px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --fs-xs:11px;--fs-sm:13px;--fs-base:15px;--fs-md:16px;--fs-lg:18px;--fs-xl:22px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
+  --btn-h:44px;--input-h:44px;--nav-h:60px;--max:480px;--ease:150ms ease;--ease-slow:280ms ease;
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 *{box-sizing:border-box}
-#app{max-width:480px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0);background:#0a0a0c}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:var(--fs-base);line-height:1.5;-webkit-text-size-adjust:100%;overflow:hidden}
+button,input,textarea{font:inherit;color:inherit}button{cursor:pointer}
+#app{max-width:var(--max);margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0);background:var(--bg)}
 #stage{flex:1;min-height:0;overflow:hidden;position:relative}
-.page{display:none;flex-direction:column;height:100%;overflow:hidden;animation:fadePage .28s ease}
-.page.on{display:flex}
-@keyframes fadePage{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.fade-in{animation:fadeIn .45s ease both}
-.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px 28px}
-.home{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px}
-.logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(145deg,#fff 0%,#e4e4e7 100%);color:#0a0a0c;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-.04em}
-.sub{color:#a1a1aa;margin:0 0 32px;font-size:15px}
-.cards{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
-.card{background:#141417;border:1px solid #27272a;border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:#f4f4f5;font:inherit}
-.card strong{display:block;font-size:17px;margin-bottom:5px}
-.card span{font-size:13px;color:#a1a1aa}
-.head{padding:16px 18px 10px;flex-shrink:0;border-bottom:1px solid #1c1c1f}
-.head h2{margin:0;font-size:21px;font-weight:700}
-.head p{margin:4px 0 0;color:#71717a;font-size:13px}
-.steps{display:flex;gap:6px;padding:12px 18px 4px;flex-shrink:0}
-.step-dot{flex:1;height:3px;border-radius:3px;background:#27272a}
-.step-dot.on{background:#fafafa}
-.step-dot.done{background:#52525b}
-.lbl{font-size:11px;font-weight:650;color:#71717a;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px}
-.row2{display:flex;gap:10px;margin-bottom:14px}
-.choice{flex:1;background:#141417;border:1px solid #27272a;border-radius:16px;padding:18px 12px;text-align:center;cursor:pointer;color:#f4f4f5;font:inherit;font-weight:600;font-size:14px;position:relative}
-.choice input{position:absolute;opacity:0;width:100%;height:100%;left:0;top:0;cursor:pointer}
-.choice small{display:block;font-weight:400;color:#71717a;font-size:12px;margin-top:5px}
-.pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
-.pill{background:#141417;border:1px solid #27272a;color:#a1a1aa;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;font:inherit}
-.pill.on{background:#fafafa;color:#0a0a0c;border-color:#fafafa}
-.inp,.area{display:block;width:100%;background:#141417;border:1px solid #27272a;border-radius:14px;color:#f4f4f5;padding:14px 15px;font-size:16px;font-family:inherit;margin:0 0 12px;outline:none;-webkit-appearance:none}
-.area{min-height:110px;resize:vertical}
-.btn{display:block;width:100%;background:#fafafa;color:#0a0a0c;border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;font:inherit}
-.btn.sec{background:#141417;color:#f4f4f5;border:1px solid #27272a}
-.prev{max-width:100%;max-height:180px;border-radius:14px;margin:0 0 12px;display:none;object-fit:cover}
-.status{font-size:13px;color:#a1a1aa;margin:0 0 12px}
-.q-list{margin:0 0 14px}
-.q-item{display:flex;gap:10px;align-items:flex-start;background:#141417;border:1px solid #27272a;border-radius:14px;padding:13px;margin-bottom:8px}
-.q-item input{margin-top:3px;width:18px;height:18px}
-.q-item label{flex:1;font-size:14px;color:#e4e4e7}
-.panel{background:#141417;border:1px solid #27272a;border-radius:16px;padding:16px;margin-top:12px;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.55;display:none}
-.panel.show{display:block;animation:fadeIn .4s ease}
-.panel .t{font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700}
-.chat{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
-.b{max-width:94%;padding:12px 4px;border-radius:0;font-size:15px;white-space:pre-wrap;word-break:break-word;animation:fadeIn .4s ease both;background:transparent;border:0}
-.b.me{align-self:flex-end;background:#fafafa;color:#0a0a0c;border-radius:18px 18px 4px 18px;padding:12px 14px;max-width:88%}
-.b.ai{align-self:flex-start;background:transparent;border:0;padding:4px 2px 2px;max-width:96%;color:#e4e4e7}
-.b.ai .body{line-height:1.55}
-.b .live{color:#a1a1aa;font-size:13px}
+.page{display:none;flex-direction:column;height:100%;overflow:hidden}
+.page.on{display:flex;animation:pageIn var(--ease-slow)}
+@keyframes pageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:var(--space-4) var(--space-4) var(--space-8)}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border-soft);background:var(--bg);padding-bottom:env(safe-area-inset-bottom,0);min-height:var(--nav-h);flex-shrink:0}
+.nav-btn{background:transparent;border:0;color:var(--text-3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 4px;font-size:10px;font-weight:600}
+.nav-btn.on{color:var(--text)}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.home{flex:1;display:flex;flex-direction:column;padding:var(--space-6) var(--space-4);justify-content:center}
+.brand{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-8)}
+.brand-mark{width:44px;height:44px;border-radius:var(--radius);background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+.brand h1{margin:0;font-size:var(--fs-xl);font-weight:700;letter-spacing:-.03em}
+.brand p{margin:2px 0 0;font-size:var(--fs-sm);color:var(--text-2)}
+.tool-list{display:flex;flex-direction:column;gap:var(--space-3)}
+.tool-card{display:flex;align-items:flex-start;gap:var(--space-3);width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-4);color:var(--text)}
+.tool-card:active{background:var(--surface-2)}
+.tool-icon{width:40px;height:40px;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tool-icon svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tool-card strong{display:block;font-size:var(--fs-md);font-weight:650;margin-bottom:2px}
+.tool-card span{font-size:var(--fs-sm);color:var(--text-2);line-height:1.4}
+.topbar{padding:var(--space-4) var(--space-4) var(--space-3);border-bottom:1px solid var(--border-soft);flex-shrink:0}
+.topbar h2{margin:0;font-size:var(--fs-lg);font-weight:700;letter-spacing:-.02em}
+.topbar p{margin:4px 0 0;font-size:var(--fs-sm);color:var(--text-2)}
+.label{font-size:var(--fs-xs);font-weight:650;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 var(--space-2)}
+.hint{font-size:var(--fs-sm);color:var(--text-2);margin:0 0 var(--space-3);line-height:1.4}
+.field{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:12px 14px;font-size:var(--fs-md);outline:none;margin:0 0 var(--space-3);-webkit-appearance:none;min-height:var(--input-h)}
+.field:focus{border-color:var(--text-3)}
+textarea.field{min-height:110px;resize:vertical;line-height:1.45}
+.btn{display:inline-flex;align-items:center;justify-content:center;width:100%;height:var(--btn-h);padding:0 var(--space-4);border-radius:var(--radius);border:0;font-size:var(--fs-md);font-weight:650;background:var(--accent);color:var(--accent-fg);margin-top:var(--space-2)}
+.btn:disabled{opacity:.4}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.row{display:flex;gap:var(--space-2);margin-bottom:var(--space-3)}
+.row .btn{margin-top:0}
+.upload-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);margin-bottom:var(--space-3)}
+.upload-btn{position:relative;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:var(--space-5) var(--space-3);text-align:center;font-size:var(--fs-sm);font-weight:600;color:var(--text)}
+.upload-btn small{display:block;font-weight:400;color:var(--text-3);margin-top:4px;font-size:var(--fs-xs)}
+.upload-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.preview{max-width:100%;max-height:160px;border-radius:var(--radius);margin:0 0 var(--space-3);display:none;object-fit:cover;border:1px solid var(--border)}
+.status{font-size:var(--fs-sm);color:var(--text-2);margin:0 0 var(--space-3)}
+.status.warn{color:var(--warning)}.status.err{color:var(--error)}.status.ok{color:var(--success)}
+.chips{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-3)}
+.chip{background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:var(--radius-full);padding:8px 14px;font-size:var(--fs-sm);font-weight:600}
+.chip.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.steps{display:flex;gap:6px;padding:0 var(--space-4) var(--space-3);flex-shrink:0}
+.step{flex:1;height:3px;border-radius:3px;background:var(--border)}.step.on{background:var(--text)}.step.done{background:var(--text-3)}
+.q-item{display:flex;gap:var(--space-3);align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-3);margin-bottom:var(--space-2)}
+.q-item.on{border-color:var(--text-3);background:var(--surface-2)}
+.q-item input{margin-top:3px;width:18px;height:18px;accent-color:var(--text)}
+.q-item label{flex:1;font-size:var(--fs-sm);color:var(--text);line-height:1.4}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-4);margin-top:var(--space-3);display:none}
+.panel.show{display:block;animation:fadeIn var(--ease-slow)}
+.panel .meta{font-size:var(--fs-xs);color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:var(--space-3)}
+.answer-body{font-size:var(--fs-base);line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.chat{flex:1;min-height:0;overflow-y:auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
+.msg{max-width:92%;font-size:var(--fs-base);line-height:1.55;animation:fadeIn var(--ease-slow)}
+.msg.me{align-self:flex-end;background:var(--accent);color:var(--accent-fg);border-radius:var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);padding:12px 14px;white-space:pre-wrap}
+.msg.ai{align-self:flex-start;padding:4px 2px;color:var(--text)}
+.msg .live{color:var(--text-2);font-size:var(--fs-sm)}
 .msg-actions{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px}
-.msg-actions .left{display:flex;gap:4px;align-items:center}
-.msg-actions .time{font-size:11px;color:#52525b;white-space:nowrap}
-.icon-btn{background:transparent;border:0;color:#71717a;width:34px;height:34px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
-.icon-btn:active{background:#1c1c20;color:#fafafa}
-.icon-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.msg-actions .left{display:flex;gap:2px}
+.msg-actions .time{font-size:var(--fs-xs);color:var(--text-3)}
+.icon-btn{background:transparent;border:0;color:var(--text-3);width:36px;height:36px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;padding:0}
+.icon-btn:active{background:var(--surface-2);color:var(--text)}
+.icon-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .book-card{display:flex;gap:12px;margin:6px 0;align-items:flex-start}
-.book-card img{width:72px;height:108px;object-fit:cover;border-radius:8px;background:#27272a;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.4)}
-.book-card .info strong{display:block;font-size:15px;margin-bottom:2px;color:#fafafa}
-.book-card .info .meta{font-size:12px;color:#a1a1aa;margin-bottom:8px}
-.composer{flex-shrink:0;padding:10px 12px 12px;border-top:1px solid #1c1c1f;background:#0a0a0c}
-.composer-box{display:flex;flex-direction:column;background:#141417;border:1px solid #27272a;border-radius:22px;padding:8px 10px;gap:6px}
-.composer-box .row{display:flex;align-items:flex-end;gap:6px}
-.composer-box .inp{margin:0;flex:1;background:transparent;border:0;padding:8px 6px;font-size:16px;color:#fafafa;outline:none}
-.composer-tools{display:flex;align-items:center;gap:2px}
-.mode-pill{background:#1c1c20;border:1px solid #27272a;color:#a1a1aa;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:650;cursor:pointer;font:inherit}
-.send-btn{width:36px;height:36px;border-radius:50%;border:0;background:#fafafa;color:#0a0a0c;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
-.send-btn:disabled{opacity:.35}
-.send-btn svg{width:18px;height:18px}
-.mic-on{color:#f87171 !important}
-.attach-menu{display:none;gap:6px;padding:4px 2px 2px;flex-wrap:wrap}
-.attach-menu.on{display:flex}
-.attach-menu button{background:#1c1c20;border:1px solid #27272a;color:#e4e4e7;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font:inherit}
-.tabs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid #1c1c1f;background:#0a0a0c;padding-bottom:env(safe-area-inset-bottom,0);min-height:58px;flex-shrink:0}
-.tab{background:transparent;border:0;color:#52525b;font-size:11px;font-weight:650;padding:12px 4px;cursor:pointer;font:inherit}
-.tab.on{color:#fafafa}
-.hint{font-size:13px;color:#71717a;margin:0 0 12px;line-height:1.4}
+.book-card img{width:64px;height:96px;object-fit:cover;border-radius:var(--radius-sm);background:var(--elevated);flex-shrink:0}
+.book-card strong{display:block;font-size:var(--fs-md);margin-bottom:2px}
+.book-card .meta{font-size:var(--fs-sm);color:var(--text-2);margin-bottom:8px}
+.composer{flex-shrink:0;padding:10px 12px 12px;border-top:1px solid var(--border-soft);background:var(--bg)}
+.composer-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:8px 10px}
+.composer-box .row{margin:0;align-items:flex-end}
+.composer-box .field{margin:0;flex:1;background:transparent;border:0;padding:8px 6px;min-height:24px;height:auto}
+.send{width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-fg);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.send:disabled{opacity:.35}.send svg{width:16px;height:16px}
+.attach-menu{display:none;gap:6px;padding:4px 2px 6px;flex-wrap:wrap}.attach-menu.on{display:flex}
+.attach-menu button{background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-full);padding:6px 12px;font-size:var(--fs-xs);font-weight:600}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.modal-bg.on{display:flex}
+.modal{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl) var(--radius-xl) 0 0;width:100%;max-width:var(--max);padding:var(--space-5) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom,0));max-height:80vh;overflow-y:auto;animation:pageIn var(--ease-slow)}
+.modal h3{margin:0 0 6px;font-size:var(--fs-lg);font-weight:700}
+.modal p{margin:0 0 var(--space-4);font-size:var(--fs-sm);color:var(--text-2)}
+.modal-list{display:flex;flex-direction:column;gap:8px}
+.modal-item{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-weight:600;font-size:var(--fs-md);color:var(--text)}
+.modal-item small{display:block;font-weight:400;color:var(--text-2);font-size:var(--fs-sm);margin-top:2px}
+.modal-item.on{border-color:var(--text-3);background:var(--surface-2)}
 </style>
 </head>
 <body>
@@ -94,133 +117,122 @@ h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-.04em}
   <div id="stage">
     <div id="page-home" class="page on">
       <div class="home">
-        <div class="logo">S</div>
-        <h1>Study AI</h1>
-        <p class="sub">Homework · Notes · Research</p>
-        <div class="cards">
-          <button type="button" class="card" id="go-hw"><strong>Homework</strong><span>Photo → questions → explain or answer</span></button>
-          <button type="button" class="card" id="go-notes"><strong>Notes</strong><span>From a photo, link, or pasted text</span></button>
-          <button type="button" class="card" id="go-learn"><strong>Research</strong><span>Any subject — science, history, math, books</span></button>
+        <div class="brand"><div class="brand-mark">S</div><div><h1>Study AI</h1><p>Homework · Notes · Research</p></div></div>
+        <div class="tool-list">
+          <button type="button" class="tool-card" id="go-hw"><div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><div><strong>Homework</strong><span>Photo of the assignment → pick questions → get clear help</span></div></button>
+          <button type="button" class="tool-card" id="go-notes"><div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg></div><div><strong>Notes</strong><span>Photo, link, or text → short, medium, or long study notes</span></div></button>
+          <button type="button" class="tool-card" id="go-learn"><div class="tool-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><div><strong>Research</strong><span>Any subject or book — short answers with sources</span></div></button>
         </div>
       </div>
     </div>
     <div id="page-homework" class="page">
-      <div class="head"><h2>Homework</h2><p id="hw-step-label">Step 1 · Add the worksheet</p></div>
-      <div class="steps" id="hw-dots"><div class="step-dot on"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+      <div class="topbar"><h2>Homework</h2><p id="hw-step-label">Step 1 · Add the worksheet</p></div>
+      <div class="steps" id="hw-dots"><div class="step on"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
       <div class="scroll">
         <div id="hw-s1">
-          <p class="hint">Add a clear photo of the assignment first.</p>
-          <div class="row2">
-            <label class="choice">📷 Take photo<small>Camera</small><input type="file" id="hw-cam" accept="image/*" capture="environment" /></label>
-            <label class="choice">🖼️ Upload<small>Library</small><input type="file" id="hw-up" accept="image/*" /></label>
+          <p class="hint">Take a clear photo of the page. Good light helps a lot.</p>
+          <div class="upload-row">
+            <label class="upload-btn">Camera<small>Take photo</small><input type="file" id="hw-cam" accept="image/*" capture="environment"/></label>
+            <label class="upload-btn">Upload<small>Photo library</small><input type="file" id="hw-up" accept="image/*"/></label>
           </div>
-          <img id="hw-prev" class="prev" alt="" />
+          <img id="hw-prev" class="preview" alt=""/>
           <p class="status" id="hw-ocr"></p>
-          <textarea class="area" id="hw-text" placeholder="Text from the photo shows here. You can edit it."></textarea>
-          <button type="button" class="btn" id="hw-next1">Analyze questions</button>
+          <p class="label">Text from the page</p>
+          <textarea class="field" id="hw-text" placeholder="Text appears here after the photo. Fix any mistakes."></textarea>
+          <button type="button" class="btn" id="hw-next1">Continue</button>
         </div>
         <div id="hw-s2" style="display:none">
-          <p class="hint">Select questions. Suggested order is shown.</p>
-          <div class="q-list" id="hw-qlist"></div>
-          <button type="button" class="btn sec" id="hw-back2">Back</button>
-          <button type="button" class="btn" id="hw-next2">Continue</button>
+          <p class="hint">Select the questions you need help with.</p>
+          <div id="hw-qlist"></div>
+          <div class="row"><button type="button" class="btn btn-secondary" id="hw-back2">Back</button><button type="button" class="btn" id="hw-next2">Continue</button></div>
         </div>
         <div id="hw-s3" style="display:none">
-          <p class="lbl">Subject</p>
-          <div class="pill-row" id="hw-subject">
-            <button type="button" class="pill" data-subj="math">Math</button>
-            <button type="button" class="pill" data-subj="science">Science</button>
-            <button type="button" class="pill" data-subj="english">English / Reading</button>
-            <button type="button" class="pill" data-subj="history">History / Social Studies</button>
-            <button type="button" class="pill" data-subj="general">General</button>
+          <p class="label">Subject</p>
+          <button type="button" class="btn btn-secondary" id="hw-subject-btn" style="margin-bottom:12px">Choose subject</button>
+          <p class="status" id="hw-subject-label">Not set yet — pick the best match</p>
+          <p class="label">How should I help?</p>
+          <div class="chips" id="hw-modes">
+            <button type="button" class="chip on" data-m="explain">Explanation</button>
+            <button type="button" class="chip" data-m="answer">Answer</button>
+            <button type="button" class="chip" data-m="both">Answer + explain</button>
           </div>
-          <p class="status" id="hw-subject-note"></p>
-          <p class="lbl">How should I help?</p>
-          <div class="pill-row" id="hw-modes">
-            <button type="button" class="pill on" data-m="explain">Help me understand</button>
-            <button type="button" class="pill" data-m="answer">Give me the answer</button>
-            <button type="button" class="pill" data-m="both">Answer + Explanation</button>
-            <button type="button" class="pill" data-m="essay">Essay mode</button>
+          <p class="label">Writing level</p>
+          <div class="chips" id="hw-style">
+            <button type="button" class="chip on" data-s="grade7">7th grade+</button>
+            <button type="button" class="chip" data-s="high">High school</button>
+            <button type="button" class="chip" data-s="normal">Everyday</button>
           </div>
-          <p class="lbl">Writing style (essays)</p>
-          <div class="pill-row" id="hw-style">
-            <button type="button" class="pill on" data-s="grade7">7th grade+</button>
-            <button type="button" class="pill" data-s="high">High school</button>
-            <button type="button" class="pill" data-s="normal">Everyday</button>
-          </div>
-          <p class="lbl">Optional note</p>
-          <input class="inp" id="hw-opt" type="text" placeholder="e.g. only #3, show steps…" />
-          <button type="button" class="btn sec" id="hw-back3">Back</button>
-          <button type="button" class="btn" id="hw-go">Get help</button>
+          <label class="q-item" style="cursor:pointer;margin-bottom:12px"><input type="checkbox" id="hw-essay"/><label for="hw-essay"><strong>Essay mode</strong> — only for essay or long paragraph tasks</label></label>
+          <p class="label">Optional note</p>
+          <input class="field" id="hw-opt" type="text" placeholder="e.g. only question 3, show steps…"/>
+          <div class="row"><button type="button" class="btn btn-secondary" id="hw-back3">Back</button><button type="button" class="btn" id="hw-go">Get help</button></div>
         </div>
         <div id="hw-s4" style="display:none">
           <div class="panel show" id="hw-out"></div>
-          <button type="button" class="btn sec" id="hw-restart">Start over</button>
+          <button type="button" class="btn btn-secondary" id="hw-restart">Start over</button>
         </div>
       </div>
     </div>
     <div id="page-notes" class="page">
-      <div class="head"><h2>Notes</h2><p>Photo, link, or paste · short / medium / long</p></div>
+      <div class="topbar"><h2>Notes</h2><p>Photo, link, or paste · pick a length</p></div>
       <div class="scroll">
-        <p class="lbl">Source</p>
-        <div class="row2">
-          <label class="choice">📷 Photo<small>Page or story</small><input type="file" id="notes-cam" accept="image/*" capture="environment" /></label>
-          <label class="choice">🖼️ Upload<small>Library</small><input type="file" id="notes-up" accept="image/*" /></label>
+        <p class="label">Source</p>
+        <div class="upload-row">
+          <label class="upload-btn">Camera<small>Page photo</small><input type="file" id="notes-cam" accept="image/*" capture="environment"/></label>
+          <label class="upload-btn">Upload<small>Library</small><input type="file" id="notes-up" accept="image/*"/></label>
         </div>
-        <img id="notes-prev" class="prev" alt="" />
+        <img id="notes-prev" class="preview" alt=""/>
         <p class="status" id="notes-ocr"></p>
-        <input class="inp" id="notes-url" type="url" placeholder="Or paste a link" />
-        <button type="button" class="btn sec" id="notes-fetch">Load link</button>
-        <textarea class="area" id="notes-text" placeholder="Or paste text here…"></textarea>
-        <p class="lbl">Note length</p>
-        <div class="pill-row" id="note-modes">
-          <button type="button" class="pill on" data-s="short">Short</button>
-          <button type="button" class="pill" data-s="medium">Medium</button>
-          <button type="button" class="pill" data-s="long">Long</button>
+        <input class="field" id="notes-url" type="url" placeholder="Or paste a link"/>
+        <button type="button" class="btn btn-secondary" id="notes-fetch">Load link</button>
+        <textarea class="field" id="notes-text" placeholder="Or paste text here…"></textarea>
+        <p class="label">Note length</p>
+        <div class="chips" id="note-modes">
+          <button type="button" class="chip on" data-s="short">Short</button>
+          <button type="button" class="chip" data-s="medium">Medium</button>
+          <button type="button" class="chip" data-s="long">Long</button>
         </div>
         <button type="button" class="btn" id="notes-btn">Make notes</button>
         <div class="panel" id="notes-out"></div>
       </div>
     </div>
     <div id="page-learn" class="page">
-      <div class="head"><h2>Research</h2><p>Any subject · science, history, math, books</p></div>
+      <div class="topbar"><h2>Research</h2><p>Any subject or book</p></div>
       <div class="chat" id="chat"></div>
       <div class="composer">
         <div class="composer-box">
           <div class="attach-menu" id="attach-menu">
             <button type="button" id="att-cam">Camera</button>
             <button type="button" id="att-photo">Photos</button>
-            <button type="button" id="att-file">Files</button>
-            <input type="file" id="att-cam-input" accept="image/*" capture="environment" style="display:none" />
-            <input type="file" id="att-photo-input" accept="image/*" style="display:none" />
-            <input type="file" id="att-file-input" accept="image/*,.pdf,.txt,.doc,.docx" style="display:none" />
+            <input type="file" id="att-cam-input" accept="image/*" capture="environment" style="display:none"/>
+            <input type="file" id="att-photo-input" accept="image/*" style="display:none"/>
           </div>
           <div class="row">
-            <button type="button" class="icon-btn" id="plus-btn" title="Add">
-              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
-            <input class="inp" id="learn-in" type="text" placeholder="Any topic or book…" autocomplete="off" />
-            <div class="composer-tools">
-              <button type="button" class="mode-pill" id="mode-btn">Normal</button>
-              <button type="button" class="icon-btn" id="mic-btn" title="Speak">
-                <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-              </button>
-              <button type="button" class="send-btn" id="learn-btn" title="Send">
-                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
-              </button>
-            </div>
+            <button type="button" class="icon-btn" id="plus-btn" title="Add" aria-label="Add attachment"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <input class="field" id="learn-in" type="text" placeholder="Topic or book title…" autocomplete="off"/>
+            <button type="button" class="chip" id="mode-btn" style="flex-shrink:0">Normal</button>
+            <button type="button" class="send" id="learn-btn" title="Send" aria-label="Send"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
           </div>
         </div>
       </div>
     </div>
   </div>
-  <nav class="tabs">
-    <button type="button" class="tab on" id="tab-home">Home</button>
-    <button type="button" class="tab" id="tab-homework">Homework</button>
-    <button type="button" class="tab" id="tab-notes">Notes</button>
-    <button type="button" class="tab" id="tab-learn">Research</button>
+  <nav class="nav" aria-label="Main">
+    <button type="button" class="nav-btn on" id="tab-home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Home</button>
+    <button type="button" class="nav-btn" id="tab-homework" aria-label="Homework"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Homework</button>
+    <button type="button" class="nav-btn" id="tab-notes" aria-label="Notes"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Notes</button>
+    <button type="button" class="nav-btn" id="tab-learn" aria-label="Research"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Research</button>
   </nav>
 </div>
+<div class="modal-bg" id="subject-modal" role="dialog" aria-labelledby="subject-title">
+  <div class="modal">
+    <h3 id="subject-title">Choose subject</h3>
+    <p>Pick the subject that matches this assignment. You can change it if it’s wrong.</p>
+    <div class="modal-list" id="subject-list"></div>
+    <button type="button" class="btn btn-secondary" id="subject-close" style="margin-top:16px">Cancel</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="app.js?v=8"></script>
 </body>
 </html>
