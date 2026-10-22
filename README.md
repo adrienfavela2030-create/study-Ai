@@ -1,5 +1,3 @@
-# Study AI
-
 An independent artificial intelligence created and trained **from scratch** for
 schoolwork, learning, note-taking, and educational research.
 

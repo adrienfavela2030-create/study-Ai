@@ -3,5 +3,5 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-# The runs/ directory IS committed: it contains real checkpoints from
-# experiments that actually ran. Nothing fake is ever placed there.
+# runs/ is committed: it holds real checkpoints from experiments that ran.
+# Nothing fake is ever placed there.

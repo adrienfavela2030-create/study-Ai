@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0c" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Study AI" />
+<title>Study AI</title>
+<style>
+html,body{margin:0;padding:0;height:100%;background:#0a0a0c;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%;overflow:hidden}
+*{box-sizing:border-box}
+#app{max-width:480px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0);background:#0a0a0c}
+#stage{flex:1;min-height:0;overflow:hidden;position:relative}
+.page{display:none;flex-direction:column;height:100%;overflow:hidden;animation:fadePage .28s ease}
+.page.on{display:flex}
+@keyframes fadePage{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fade-in{animation:fadeIn .45s ease both}
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px 28px}
+.home{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px}
+.logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(145deg,#fff 0%,#e4e4e7 100%);color:#0a0a0c;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-.04em}
+.sub{color:#a1a1aa;margin:0 0 32px;font-size:15px}
+.cards{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
+.card{background:#141417;border:1px solid #27272a;border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:#f4f4f5;font:inherit}
+.card strong{display:block;font-size:17px;margin-bottom:5px}
+.card span{font-size:13px;color:#a1a1aa}
+.head{padding:16px 18px 10px;flex-shrink:0;border-bottom:1px solid #1c1c1f}
+.head h2{margin:0;font-size:21px;font-weight:700}
+.head p{margin:4px 0 0;color:#71717a;font-size:13px}
+.steps{display:flex;gap:6px;padding:12px 18px 4px;flex-shrink:0}
+.step-dot{flex:1;height:3px;border-radius:3px;background:#27272a}
+.step-dot.on{background:#fafafa}
+.step-dot.done{background:#52525b}
+.lbl{font-size:11px;font-weight:650;color:#71717a;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px}
+.row2{display:flex;gap:10px;margin-bottom:14px}
+.choice{flex:1;background:#141417;border:1px solid #27272a;border-radius:16px;padding:18px 12px;text-align:center;cursor:pointer;color:#f4f4f5;font:inherit;font-weight:600;font-size:14px;position:relative}
+.choice input{position:absolute;opacity:0;width:100%;height:100%;left:0;top:0;cursor:pointer}
+.choice small{display:block;font-weight:400;color:#71717a;font-size:12px;margin-top:5px}
+.pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.pill{background:#141417;border:1px solid #27272a;color:#a1a1aa;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;font:inherit}
+.pill.on{background:#fafafa;color:#0a0a0c;border-color:#fafafa}
+.inp,.area{display:block;width:100%;background:#141417;border:1px solid #27272a;border-radius:14px;color:#f4f4f5;padding:14px 15px;font-size:16px;font-family:inherit;margin:0 0 12px;outline:none;-webkit-appearance:none}
+.area{min-height:110px;resize:vertical}
+.btn{display:block;width:100%;background:#fafafa;color:#0a0a0c;border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;font:inherit}
+.btn.sec{background:#141417;color:#f4f4f5;border:1px solid #27272a}
+.prev{max-width:100%;max-height:180px;border-radius:14px;margin:0 0 12px;display:none;object-fit:cover}
+.status{font-size:13px;color:#a1a1aa;margin:0 0 12px}
+.q-list{margin:0 0 14px}
+.q-item{display:flex;gap:10px;align-items:flex-start;background:#141417;border:1px solid #27272a;border-radius:14px;padding:13px;margin-bottom:8px}
+.q-item input{margin-top:3px;width:18px;height:18px}
+.q-item label{flex:1;font-size:14px;color:#e4e4e7}
+.panel{background:#141417;border:1px solid #27272a;border-radius:16px;padding:16px;margin-top:12px;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.55;display:none}
+.panel.show{display:block;animation:fadeIn .4s ease}
+.panel .t{font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700}
+.chat{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.b{max-width:94%;padding:12px 4px;border-radius:0;font-size:15px;white-space:pre-wrap;word-break:break-word;animation:fadeIn .4s ease both;background:transparent;border:0}
+.b.me{align-self:flex-end;background:#fafafa;color:#0a0a0c;border-radius:18px 18px 4px 18px;padding:12px 14px;max-width:88%}
+.b.ai{align-self:flex-start;background:transparent;border:0;padding:4px 2px 2px;max-width:96%;color:#e4e4e7}
+.b.ai .body{line-height:1.55}
+.b .live{color:#a1a1aa;font-size:13px}
+.msg-actions{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px}
+.msg-actions .left{display:flex;gap:4px;align-items:center}
+.msg-actions .time{font-size:11px;color:#52525b;white-space:nowrap}
+.icon-btn{background:transparent;border:0;color:#71717a;width:34px;height:34px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.icon-btn:active{background:#1c1c20;color:#fafafa}
+.icon-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.book-card{display:flex;gap:12px;margin:6px 0;align-items:flex-start}
+.book-card img{width:72px;height:108px;object-fit:cover;border-radius:8px;background:#27272a;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.book-card .info strong{display:block;font-size:15px;margin-bottom:2px;color:#fafafa}
+.book-card .info .meta{font-size:12px;color:#a1a1aa;margin-bottom:8px}
+.composer{flex-shrink:0;padding:10px 12px 12px;border-top:1px solid #1c1c1f;background:#0a0a0c}
+.composer-box{display:flex;flex-direction:column;background:#141417;border:1px solid #27272a;border-radius:22px;padding:8px 10px;gap:6px}
+.composer-box .row{display:flex;align-items:flex-end;gap:6px}
+.composer-box .inp{margin:0;flex:1;background:transparent;border:0;padding:8px 6px;font-size:16px;color:#fafafa;outline:none}
+.composer-tools{display:flex;align-items:center;gap:2px}
+.mode-pill{background:#1c1c20;border:1px solid #27272a;color:#a1a1aa;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:650;cursor:pointer;font:inherit}
+.send-btn{width:36px;height:36px;border-radius:50%;border:0;background:#fafafa;color:#0a0a0c;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.send-btn:disabled{opacity:.35}
+.send-btn svg{width:18px;height:18px}
+.mic-on{color:#f87171 !important}
+.attach-menu{display:none;gap:6px;padding:4px 2px 2px;flex-wrap:wrap}
+.attach-menu.on{display:flex}
+.attach-menu button{background:#1c1c20;border:1px solid #27272a;color:#e4e4e7;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font:inherit}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid #1c1c1f;background:#0a0a0c;padding-bottom:env(safe-area-inset-bottom,0);min-height:58px;flex-shrink:0}
+.tab{background:transparent;border:0;color:#52525b;font-size:11px;font-weight:650;padding:12px 4px;cursor:pointer;font:inherit}
+.tab.on{color:#fafafa}
+.hint{font-size:13px;color:#71717a;margin:0 0 12px;line-height:1.4}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="page-home" class="page on">
+      <div class="home">
+        <div class="logo">S</div>
+        <h1>Study AI</h1>
+        <p class="sub">Homework · Notes · Research</p>
+        <div class="cards">
+          <button type="button" class="card" id="go-hw"><strong>Homework</strong><span>Photo → questions → explain or answer</span></button>
+          <button type="button" class="card" id="go-notes"><strong>Notes</strong><span>From a photo, link, or pasted text</span></button>
+          <button type="button" class="card" id="go-learn"><strong>Research</strong><span>Any subject — science, history, math, books</span></button>
+        </div>
+      </div>
+    </div>
+    <div id="page-homework" class="page">
+      <div class="head"><h2>Homework</h2><p id="hw-step-label">Step 1 · Add the worksheet</p></div>
+      <div class="steps" id="hw-dots"><div class="step-dot on"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+      <div class="scroll">
+        <div id="hw-s1">
+          <p class="hint">Add a clear photo of the assignment first.</p>
+          <div class="row2">
+            <label class="choice">📷 Take photo<small>Camera</small><input type="file" id="hw-cam" accept="image/*" capture="environment" /></label>
+            <label class="choice">🖼️ Upload<small>Library</small><input type="file" id="hw-up" accept="image/*" /></label>
+          </div>
+          <img id="hw-prev" class="prev" alt="" />
+          <p class="status" id="hw-ocr"></p>
+          <textarea class="area" id="hw-text" placeholder="Text from the photo shows here. You can edit it."></textarea>
+          <button type="button" class="btn" id="hw-next1">Analyze questions</button>
+        </div>
+        <div id="hw-s2" style="display:none">
+          <p class="hint">Select questions. Suggested order is shown.</p>
+          <div class="q-list" id="hw-qlist"></div>
+          <button type="button" class="btn sec" id="hw-back2">Back</button>
+          <button type="button" class="btn" id="hw-next2">Continue</button>
+        </div>
+        <div id="hw-s3" style="display:none">
+          <p class="lbl">How should I help?</p>
+          <div class="pill-row" id="hw-modes">
+            <button type="button" class="pill on" data-m="explain">Explanation</button>
+            <button type="button" class="pill" data-m="answer">Answer</button>
+            <button type="button" class="pill" data-m="both">Answer + Explanation</button>
+          </div>
+          <p class="lbl">Writing style (essays)</p>
+          <div class="pill-row" id="hw-style">
+            <button type="button" class="pill on" data-s="grade7">7th grade+</button>
+            <button type="button" class="pill" data-s="high">High school</button>
+            <button type="button" class="pill" data-s="normal">Everyday</button>
+          </div>
+          <p class="lbl">Optional note</p>
+          <input class="inp" id="hw-opt" type="text" placeholder="e.g. only #3, show steps…" />
+          <button type="button" class="btn sec" id="hw-back3">Back</button>
+          <button type="button" class="btn" id="hw-go">Get help</button>
+        </div>
+        <div id="hw-s4" style="display:none">
+          <div class="panel show" id="hw-out"></div>
+          <button type="button" class="btn sec" id="hw-restart">Start over</button>
+        </div>
+      </div>
+    </div>
+    <div id="page-notes" class="page">
+      <div class="head"><h2>Notes</h2><p>Photo, link, or paste · short / medium / long</p></div>
+      <div class="scroll">
+        <p class="lbl">Source</p>
+        <div class="row2">
+          <label class="choice">📷 Photo<small>Page or story</small><input type="file" id="notes-cam" accept="image/*" capture="environment" /></label>
+          <label class="choice">🖼️ Upload<small>Library</small><input type="file" id="notes-up" accept="image/*" /></label>
+        </div>
+        <img id="notes-prev" class="prev" alt="" />
+        <p class="status" id="notes-ocr"></p>
+        <input class="inp" id="notes-url" type="url" placeholder="Or paste a link" />
+        <button type="button" class="btn sec" id="notes-fetch">Load link</button>
+        <textarea class="area" id="notes-text" placeholder="Or paste text here…"></textarea>
+        <p class="lbl">Note length</p>
+        <div class="pill-row" id="note-modes">
+          <button type="button" class="pill on" data-s="short">Short</button>
+          <button type="button" class="pill" data-s="medium">Medium</button>
+          <button type="button" class="pill" data-s="long">Long</button>
+        </div>
+        <button type="button" class="btn" id="notes-btn">Make notes</button>
+        <div class="panel" id="notes-out"></div>
+      </div>
+    </div>
+    <div id="page-learn" class="page">
+      <div class="head"><h2>Research</h2><p>Any subject · science, history, math, books</p></div>
+      <div class="chat" id="chat"></div>
+      <div class="composer">
+        <div class="composer-box">
+          <div class="attach-menu" id="attach-menu">
+            <button type="button" id="att-cam">Camera</button>
+            <button type="button" id="att-photo">Photos</button>
+            <button type="button" id="att-file">Files</button>
+            <input type="file" id="att-cam-input" accept="image/*" capture="environment" style="display:none" />
+            <input type="file" id="att-photo-input" accept="image/*" style="display:none" />
+            <input type="file" id="att-file-input" accept="image/*,.pdf,.txt,.doc,.docx" style="display:none" />
+          </div>
+          <div class="row">
+            <button type="button" class="icon-btn" id="plus-btn" title="Add">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <input class="inp" id="learn-in" type="text" placeholder="Any topic or book…" autocomplete="off" />
+            <div class="composer-tools">
+              <button type="button" class="mode-pill" id="mode-btn">Normal</button>
+              <button type="button" class="icon-btn" id="mic-btn" title="Speak">
+                <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+              </button>
+              <button type="button" class="send-btn" id="learn-btn" title="Send">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button type="button" class="tab on" id="tab-home">Home</button>
+    <button type="button" class="tab" id="tab-homework">Homework</button>
+    <button type="button" class="tab" id="tab-notes">Notes</button>
+    <button type="button" class="tab" id="tab-learn">Research</button>
+  </nav>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="app.js?v=7"></script>
+</body>
+</html>
