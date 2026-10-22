@@ -3,171 +3,143 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
-<meta name="theme-color" content="#0a0a0a"/>
+<meta name="theme-color" content="#212121"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <title>Study AI</title>
 <style>
-:root{--bg:#0a0a0a;--bg2:#111113;--card:#161618;--card2:#1c1c1f;--line:#2a2a2e;--text:#fafafa;--muted:#a1a1aa;--dim:#71717a;--white:#fafafa;--black:#0a0a0a;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--r:16px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--spring:cubic-bezier(.22,1,.36,1)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.45}
-body{overflow:hidden}
-button,input,textarea{font:inherit;color:inherit}
-button{cursor:pointer;border:0;background:none}
-#app{max-width:440px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
-#main{flex:1;min-height:0;overflow:hidden;position:relative}
-.screen{display:none;flex-direction:column;height:100%;min-height:0;opacity:0}
-.screen.on{display:flex;animation:in .35s var(--spring) forwards}
-@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
-.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 18px 32px}
-.home{flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px 22px}
-.mark{width:40px;height:40px;border-radius:12px;background:var(--white);color:var(--black);font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
-.home h1{margin:0 0 6px;font-size:28px;font-weight:650;letter-spacing:-.04em}
-.home .sub{margin:0 0 28px;color:var(--muted);font-size:15px}
-.tools{display:flex;flex-direction:column;gap:10px}
-.tool{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;transition:transform .15s var(--spring),background .15s}
-.tool:active{transform:scale(.98);background:var(--card2)}
-.tool-ic{width:36px;height:36px;border-radius:10px;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.tool-ic svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.tool strong{display:block;font-size:15px;font-weight:600;margin-bottom:2px}
-.tool span{font-size:12px;color:var(--muted);line-height:1.35}
-.nav{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);min-height:58px;background:var(--bg);flex-shrink:0}
-.nav button{color:var(--dim);font-size:10px;font-weight:600;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .15s}
-.nav button.on{color:var(--text)}
-.nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.top{padding:16px 18px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
-.top h2{margin:0;font-size:18px;font-weight:650;letter-spacing:-.02em}
-.top p{margin:4px 0 0;font-size:13px;color:var(--muted)}
-.lbl{font-size:11px;font-weight:650;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
-.hint{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.4}
-.inp,.area{display:block;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;font-size:16px;margin:0 0 12px;outline:none;-webkit-appearance:none;color:var(--text);transition:border-color .15s}
-.inp:focus,.area:focus{border-color:var(--muted)}
-.area{min-height:110px;resize:vertical}
-.btn{display:block;width:100%;background:var(--white);color:var(--black);border-radius:14px;padding:14px;font-size:15px;font-weight:650;margin-top:8px;transition:transform .12s var(--spring)}
-.btn:active{transform:scale(.98)}
-.btn2{display:block;width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:15px;font-weight:650;margin-top:8px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;background:#212121;color:#ececec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;overflow:hidden}
+button,input,textarea{font:inherit;color:inherit;border:0;background:none}
+button{cursor:pointer}
+#app{max-width:480px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #2f2f2f;flex-shrink:0;min-height:52px}
+.header h1{font-size:16px;font-weight:600;letter-spacing:-.02em}
+.tabs{display:flex;gap:4px;background:#2f2f2f;border-radius:10px;padding:3px}
+.tab{padding:7px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#8e8e8e}
+.tab.on{background:#424242;color:#fff}
+.pages{flex:1;min-height:0;position:relative;overflow:hidden}
+.page{display:none;flex-direction:column;height:100%;min-height:0}
+.page.on{display:flex}
+.chat{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 14px;display:flex;flex-direction:column;gap:16px}
+.msg{max-width:92%;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.msg.user{align-self:flex-end;background:#2f2f2f;border-radius:18px 18px 4px 18px;padding:12px 14px}
+.msg.bot{align-self:flex-start;padding:4px 2px}
+.msg .live{color:#8e8e8e;font-size:13px}
+.book{display:flex;gap:12px;margin-top:4px}
+.book img{width:52px;height:78px;object-fit:cover;border-radius:6px;background:#2f2f2f;flex-shrink:0}
+.composer{flex-shrink:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #2f2f2f}
+.composer-inner{display:flex;align-items:flex-end;gap:8px;background:#2f2f2f;border-radius:24px;padding:8px 8px 8px 16px}
+.composer-inner input{flex:1;background:transparent;outline:none;padding:8px 0;font-size:16px;min-width:0;-webkit-appearance:none;color:#ececec}
+.composer-inner input::placeholder{color:#8e8e8e}
+.send{width:36px;height:36px;border-radius:50%;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.send svg{width:16px;height:16px}
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 14px 28px}
+.hint{font-size:14px;color:#8e8e8e;margin-bottom:14px}
+.lbl{font-size:11px;font-weight:650;color:#8e8e8e;text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.field{display:block;width:100%;background:#2f2f2f;border:1px solid #3a3a3a;border-radius:12px;padding:12px 14px;font-size:16px;margin:0 0 12px;outline:none;color:#ececec;-webkit-appearance:none}
+.field:focus{border-color:#666}
+textarea.field{min-height:100px;resize:vertical}
+.btn{display:block;width:100%;background:#fff;color:#000;border-radius:12px;padding:14px;font-size:15px;font-weight:650;margin-top:8px;text-align:center}
+.btn2{display:block;width:100%;background:#2f2f2f;color:#ececec;border:1px solid #3a3a3a;border-radius:12px;padding:14px;font-size:15px;font-weight:650;margin-top:8px;text-align:center}
 .row{display:flex;gap:8px}.row>*{flex:1;margin-top:0}
 .up2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.up{position:relative;background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:22px 12px;text-align:center;font-size:13px;font-weight:600}
-.up small{display:block;color:var(--dim);font-weight:400;margin-top:4px;font-size:11px}
+.up{position:relative;background:#2f2f2f;border:1px dashed #3a3a3a;border-radius:12px;padding:20px 10px;text-align:center;font-size:13px;font-weight:600}
+.up small{display:block;color:#8e8e8e;font-weight:400;margin-top:4px;font-size:11px}
 .up input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
-.pv{max-width:100%;max-height:140px;border-radius:12px;margin:0 0 12px;display:none;object-fit:cover}
-.st{font-size:13px;color:var(--muted);margin:0 0 12px}
-.st.ok{color:var(--ok)}.st.warn{color:var(--warn)}.st.bad{color:var(--bad)}
+.preview{max-width:100%;max-height:120px;border-radius:10px;margin:0 0 12px;display:none;object-fit:cover}
+.status{font-size:13px;color:#8e8e8e;margin:0 0 12px}
+.status.ok{color:#4ade80}.status.warn{color:#fbbf24}.status.err{color:#f87171}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.chip{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;transition:all .15s}
-.chip.on{background:var(--white);color:var(--black);border-color:var(--white)}
-.dots{display:flex;gap:6px;padding:0 18px 10px;flex-shrink:0}
-.dot{flex:1;height:3px;border-radius:2px;background:var(--line);transition:background .25s}
-.dot.on{background:var(--text)}.dot.done{background:var(--dim)}
-.qi{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;animation:fade .3s var(--spring) both}
-.qi input{margin-top:3px;width:18px;height:18px}.qi label{flex:1;font-size:13px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-top:12px;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.55;display:none}
-.panel.show{display:block;animation:fade .35s var(--spring)}
-.panel .t{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:10px}
-.chat{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
-.b{max-width:88%;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word;animation:fade .35s var(--spring)}
-.b.me{align-self:flex-end;background:var(--white);color:var(--black);border-radius:18px 18px 4px 18px;padding:12px 14px}
-.b.ai{align-self:flex-start;padding:2px 2px;color:var(--text)}
-.b .live{color:var(--muted);font-size:13px;animation:pulse 1.2s ease infinite}
-.bk{display:flex;gap:12px;margin:4px 0}
-.bk img{width:56px;height:84px;object-fit:cover;border-radius:8px;background:var(--card2);flex-shrink:0}
-.composer{flex-shrink:0;padding:10px 12px 12px;border-top:1px solid var(--line);background:var(--bg)}
-.box{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:6px 8px 6px 16px;transition:border-color .15s}
-.box:focus-within{border-color:var(--muted)}
-.box input{flex:1;background:transparent;border:0;outline:none;padding:10px 0;font-size:16px;min-width:0;-webkit-appearance:none}
-.send{width:36px;height:36px;border-radius:50%;background:var(--white);color:var(--black);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .12s var(--spring)}
-.send:active{transform:scale(.92)}
-.send svg{width:16px;height:16px}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
-.ov.open{display:flex;animation:in .25s var(--spring)}
-.sheet{width:100%;max-width:440px;background:var(--bg2);border-radius:20px 20px 0 0;padding:22px 18px calc(24px + env(safe-area-inset-bottom));max-height:75vh;overflow-y:auto}
-.sheet h3{margin:0 0 6px;font-size:18px;font-weight:650}
-.sheet p{margin:0 0 14px;font-size:13px;color:var(--muted)}
-.si{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:8px;font-weight:600;font-size:15px}
-.si small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.chip{background:#2f2f2f;border:1px solid #3a3a3a;color:#8e8e8e;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600}
+.chip.on{background:#fff;color:#000;border-color:#fff}
+.steps{display:flex;gap:6px;margin-bottom:14px}
+.step{flex:1;height:3px;border-radius:2px;background:#3a3a3a}
+.step.on{background:#fff}.step.done{background:#666}
+.qitem{display:flex;gap:10px;align-items:flex-start;background:#2f2f2f;border-radius:12px;padding:12px;margin-bottom:8px}
+.qitem input{margin-top:3px;width:18px;height:18px}.qitem label{flex:1;font-size:13px}
+.panel{background:#2f2f2f;border-radius:12px;padding:14px;margin-top:12px;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.5;display:none}
+.panel.show{display:block}
+.panel .meta{font-size:11px;color:#8e8e8e;text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:10px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.overlay.open{display:flex}
+.sheet{width:100%;max-width:480px;background:#2a2a2a;border-radius:16px 16px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));max-height:70vh;overflow-y:auto}
+.sheet h3{font-size:17px;margin-bottom:6px}.sheet p{font-size:13px;color:#8e8e8e;margin-bottom:14px}
+.sheet-btn{display:block;width:100%;text-align:left;background:#212121;border-radius:10px;padding:14px;margin-bottom:8px;font-weight:600;font-size:15px}
+.sheet-btn small{display:block;font-weight:400;color:#8e8e8e;font-size:12px;margin-top:2px}
 </style>
 </head>
 <body>
 <div id="app">
-<div id="main">
-<div class="screen on" id="pg-home">
-<div class="home">
-<div class="mark">S</div>
+<header class="header">
 <h1>Study AI</h1>
-<p class="sub">Homework, notes, and research</p>
-<div class="tools">
-<button type="button" class="tool" id="go-hw"><div class="tool-ic"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><div><strong>Homework</strong><span>Photo → pick questions → get help</span></div></button>
-<button type="button" class="tool" id="go-notes"><div class="tool-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div><div><strong>Notes</strong><span>Turn a page into study notes</span></div></button>
-<button type="button" class="tool" id="go-research"><div class="tool-ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><div><strong>Research</strong><span>Any subject or book</span></div></button>
+<div class="tabs">
+<button type="button" class="tab on" id="t-research">Research</button>
+<button type="button" class="tab" id="t-hw">Homework</button>
+<button type="button" class="tab" id="t-notes">Notes</button>
+</div>
+</header>
+<div class="pages">
+<div class="page on" id="p-research">
+<div class="chat" id="chat"></div>
+<div class="composer">
+<div class="composer-inner">
+<input type="text" id="r-input" placeholder="Ask anything…" autocomplete="off"/>
+<button type="button" class="send" id="r-send" aria-label="Send"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
 </div></div></div>
-<div class="screen" id="pg-hw">
-<div class="top"><h2>Homework</h2><p id="hw-lbl">Step 1 · Add the page</p></div>
-<div class="dots" id="hw-dots"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+<div class="page" id="p-hw">
 <div class="scroll">
-<div id="hw1">
-<p class="hint">Take a clear photo, or type the questions.</p>
+<div class="steps" id="hw-steps"><div class="step on"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+<div id="hs1">
+<p class="hint">Photo of the page, or type the questions.</p>
 <div class="up2">
 <label class="up">Camera<small>Take photo</small><input type="file" id="hw-cam" accept="image/*" capture="environment"/></label>
-<label class="up">Upload<small>Library</small><input type="file" id="hw-file" accept="image/*"/></label>
+<label class="up">Upload<small>Photos</small><input type="file" id="hw-file" accept="image/*"/></label>
 </div>
-<img id="hw-img" class="pv" alt=""/>
-<p class="st" id="hw-st"></p>
+<img id="hw-img" class="preview" alt=""/>
+<p class="status" id="hw-st"></p>
 <p class="lbl">Text</p>
-<textarea class="area" id="hw-text" placeholder="Type or edit here"></textarea>
-<button type="button" class="btn" id="hw1-next">Continue</button>
+<textarea class="field" id="hw-text" placeholder="Type or edit questions"></textarea>
+<button type="button" class="btn" id="hw-n1">Continue</button>
 </div>
-<div id="hw2" style="display:none">
-<p class="hint">Select the questions you need.</p>
+<div id="hs2" style="display:none">
+<p class="hint">Select questions to help with.</p>
 <div id="hw-qs"></div>
-<div class="row" style="margin-top:12px">
-<button type="button" class="btn2" id="hw2-back">Back</button>
-<button type="button" class="btn" id="hw2-next">Continue</button>
-</div></div>
-<div id="hw3" style="display:none">
+<div class="row"><button type="button" class="btn2" id="hw-b2">Back</button><button type="button" class="btn" id="hw-n2">Continue</button></div>
+</div>
+<div id="hs3" style="display:none">
 <p class="lbl">Subject</p>
 <button type="button" class="btn2" id="hw-subj">Choose subject</button>
-<p class="st" id="hw-subj-st">Tap to choose</p>
+<p class="status" id="hw-subj-st">Tap to choose</p>
 <p class="lbl">Help style</p>
 <div class="chips" id="hw-modes">
 <button type="button" class="chip on" data-v="explain">Explain</button>
 <button type="button" class="chip" data-v="answer">Answer</button>
 <button type="button" class="chip" data-v="both">Both</button>
 </div>
-<p class="lbl">Writing level</p>
-<div class="chips" id="hw-lvl">
-<button type="button" class="chip on" data-v="grade7">7th grade+</button>
-<button type="button" class="chip" data-v="high">High school</button>
-<button type="button" class="chip" data-v="normal">Everyday</button>
-</div>
-<div class="qi" style="margin-bottom:12px">
-<input type="checkbox" id="hw-essay"/>
-<label for="hw-essay"><strong>Essay mode</strong></label>
+<div class="qitem" style="margin-bottom:12px">
+<input type="checkbox" id="hw-essay"/><label for="hw-essay"><strong>Essay mode</strong></label>
 </div>
 <p class="lbl">Optional note</p>
-<input class="inp" id="hw-note" type="text" placeholder="e.g. only #2"/>
-<div class="row">
-<button type="button" class="btn2" id="hw3-back">Back</button>
-<button type="button" class="btn" id="hw3-go">Get help</button>
-</div></div>
-<div id="hw4" style="display:none">
+<input class="field" id="hw-note" type="text" placeholder="e.g. only #2"/>
+<div class="row"><button type="button" class="btn2" id="hw-b3">Back</button><button type="button" class="btn" id="hw-go">Get help</button></div>
+</div>
+<div id="hs4" style="display:none">
 <div class="panel show" id="hw-out"></div>
 <button type="button" class="btn2" id="hw-reset">Start over</button>
-</div></div></div>
-<div class="screen" id="pg-notes">
-<div class="top"><h2>Notes</h2><p>Photo, link, or paste</p></div>
+</div>
+</div></div>
+<div class="page" id="p-notes">
 <div class="scroll">
+<p class="hint">Photo, link, or paste text.</p>
 <div class="up2">
 <label class="up">Camera<small>Page</small><input type="file" id="n-cam" accept="image/*" capture="environment"/></label>
-<label class="up">Upload<small>Library</small><input type="file" id="n-file" accept="image/*"/></label>
+<label class="up">Upload<small>Photos</small><input type="file" id="n-file" accept="image/*"/></label>
 </div>
-<img id="n-img" class="pv" alt=""/>
-<p class="st" id="n-st"></p>
-<input class="inp" id="n-url" type="url" placeholder="Or paste a link"/>
+<img id="n-img" class="preview" alt=""/>
+<p class="status" id="n-st"></p>
+<input class="field" id="n-url" type="url" placeholder="Or paste a link"/>
 <button type="button" class="btn2" id="n-fetch">Load link</button>
-<textarea class="area" id="n-text" placeholder="Or paste text"></textarea>
+<textarea class="field" id="n-text" placeholder="Or paste text"></textarea>
 <p class="lbl">Length</p>
 <div class="chips" id="n-modes">
 <button type="button" class="chip on" data-v="short">Short</button>
@@ -177,30 +149,15 @@ button{cursor:pointer;border:0;background:none}
 <button type="button" class="btn" id="n-go">Make notes</button>
 <div class="panel" id="n-out"></div>
 </div></div>
-<div class="screen" id="pg-research">
-<div class="top"><h2>Research</h2><p>Any subject or book</p></div>
-<div class="chat" id="chat"></div>
-<div class="composer">
-<div class="box">
-<input id="r-in" type="text" placeholder="Topic or book title…" autocomplete="off"/>
-<button type="button" class="send" id="r-send" aria-label="Send"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
-</div></div></div>
-</div>
-<nav class="nav">
-<button type="button" class="on" id="nav-home"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Home</button>
-<button type="button" id="nav-hw"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Homework</button>
-<button type="button" id="nav-notes"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Notes</button>
-<button type="button" id="nav-research"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Research</button>
-</nav>
-</div>
-<div class="ov" id="subj-ov">
+</div></div>
+<div class="overlay" id="ov">
 <div class="sheet">
-<h3>Choose subject</h3>
-<p>Pick the best match. Change anytime.</p>
+<h3>Subject</h3>
+<p>Pick the best match.</p>
 <div id="subj-list"></div>
-<button type="button" class="btn2" id="subj-x">Cancel</button>
+<button type="button" class="btn2" id="ov-x">Cancel</button>
 </div></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
