@@ -1,6 +1,7 @@
 (function(){
+  /* Study AI — full app with all-subjects research */
   function $(id){ return document.getElementById(id); }
-  function esc(s){ return String(s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"); }
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function show(name){
     var pages = document.querySelectorAll(".page");
     for(var i=0;i<pages.length;i++) pages[i].classList.remove("on");
@@ -79,7 +80,7 @@
   }
   function runOCR(file, statusEl, textEl, prevEl){
     if(prevEl){ try{ prevEl.src = URL.createObjectURL(file); prevEl.style.display = "block"; }catch(e){} }
-    if(statusEl && statusEl.textContent !== undefined) statusEl.textContent = "Improving photo & reading text…";
+    if(statusEl) statusEl.textContent = "Improving photo & reading text…";
     if(typeof Tesseract === "undefined"){ if(statusEl) statusEl.textContent = "Photo added. Type the questions."; return; }
     preprocessImage(file).then(function(imgForOcr){
       return Tesseract.recognize(imgForOcr, "eng", { logger: function(m){
@@ -139,16 +140,16 @@
     return "general";
   }
   function subjectTips(subj){
-    if(subj==="math") return ["Math tips","• Write what is given and what to find","• Show each step","• Check units","• Plug the answer back in"];
-    if(subj==="science") return ["Science tips","• Name the concept","• Cause → effect","• Use class vocabulary","• Give one real example"];
-    if(subj==="english") return ["English tips","• Claim + evidence + explanation","• Point to a line from the text","• Clear topic sentence"];
-    if(subj==="history") return ["History tips","• Who / what / when / where","• Cause and effect","• Why it mattered","• Specific names and dates"];
-    return ["Study tips","• Restate the question","• Use notes or the text","• Answer in complete thoughts"];
+    if(subj==="math") return ["Math tips","• Write what is given and what to find","• Show each step","• Check units"];
+    if(subj==="science") return ["Science tips","• Name the concept","• Cause → effect","• Use class vocabulary"];
+    if(subj==="english") return ["English tips","• Claim + evidence + explanation","• Clear topic sentence"];
+    if(subj==="history") return ["History tips","• Who / what / when / where","• Cause and effect","• Why it mattered"];
+    return ["Study tips","• Restate the question","• Answer in complete thoughts"];
   }
   function styleGuide(s){
-    if(s==="grade7") return "Write clearly for 7th grade and up: short sentences, simple words.";
-    if(s==="high") return "Write at high-school level: clear structure, some academic words OK.";
-    return "Write like a normal person explaining to a friend.";
+    if(s==="grade7") return "Write clearly for 7th grade and up.";
+    if(s==="high") return "Write at high-school level.";
+    return "Write like explaining to a friend.";
   }
   $("hw-go").onclick = function(){
     var selected = [];
@@ -166,9 +167,9 @@
     for(var i=0;i<selected.length;i++){
       var q = selected[i];
       lines.push("────────"); lines.push("Question #"+q.n); lines.push(q.text); lines.push("");
-      if(hwMode==="explain"){ lines.push("Explanation"); lines.push("1. What this asks"); lines.push("2. What you need to know"); lines.push("3. Steps"); lines.push("4. Common mistakes"); }
-      else if(hwMode==="answer"){ lines.push("Answer approach"); lines.push("• State the answer clearly"); lines.push("Draft: _______________"); }
-      else { lines.push("Answer + Explanation"); lines.push("Answer: _______________"); lines.push("Why: (1–3 sentences)"); }
+      if(hwMode==="explain"){ lines.push("Explanation"); lines.push("1. What this asks"); lines.push("2. What you need"); lines.push("3. Steps"); lines.push("4. Common mistakes"); }
+      else if(hwMode==="answer"){ lines.push("Answer approach"); lines.push("• State clearly"); lines.push("Draft: _______________"); }
+      else { lines.push("Answer + Explanation"); lines.push("Answer: _______________"); lines.push("Why:"); }
       lines.push("");
     }
     $("hw-out").innerHTML = '<div class="t">Homework help</div>'+esc(lines.join("\n")); setHwStep(4);
@@ -200,7 +201,7 @@
     if(style==="short"){ lines.push("Short notes"); lines.push(""); for(var i=0;i<picks.length;i++) lines.push("• "+picks[i].slice(0,120)); }
     else if(style==="medium"){ lines.push("Medium notes"); lines.push(""); for(var i=0;i<picks.length;i++) lines.push((i+1)+". "+picks[i].slice(0,180)); }
     else { lines.push("Longer notes"); lines.push(""); for(var i=0;i<picks.length;i+=3){ var group = picks.slice(i,i+3); lines.push("Note "+(Math.floor(i/3)+1)); for(var j=0;j<group.length;j++) lines.push(group[j].slice(0,200)); lines.push(""); } }
-    lines.push("────────"); lines.push("Test tips: who/what/why · cause → effect · key names & dates");
+    lines.push("────────"); lines.push("Test tips: who/what/why · cause → effect");
     return lines.join("\n");
   }
   $("notes-btn").onclick = function(){
@@ -239,9 +240,7 @@
     copyBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     copyBtn.onclick = function(){
       var t = plainText || container.innerText || "";
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(t).then(function(){ copyBtn.style.color = "#4ade80"; setTimeout(function(){ copyBtn.style.color = ""; }, 1200); });
-      }
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function(){ copyBtn.style.color = "#4ade80"; setTimeout(function(){ copyBtn.style.color = ""; }, 1200); });
     };
     var shareBtn = document.createElement("button"); shareBtn.type = "button"; shareBtn.className = "icon-btn"; shareBtn.title = "Share";
     shareBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
@@ -260,7 +259,7 @@
     d.appendChild(body); addActions(d, plainText, startedAt);
     chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
   }
-  bubble("ai", "Type a book title (author optional).\nIf I get the wrong book, just say the author — I remember the title.\nAsk follow-ups: themes, characters, plot, more.");
+  bubble("ai", "Ask any subject — science, history, math, books, and more.\nI research topics and write a short clear answer.\nBooks: title first; if wrong, say the author. Follow-ups: more, simpler, causes…");
   var plusBtn = $("plus-btn"), attachMenu = $("attach-menu");
   if(plusBtn && attachMenu) plusBtn.onclick = function(){ attachMenu.classList.toggle("on"); };
   function wireAttach(btnId, inputId){
@@ -274,10 +273,6 @@
           var text = (result && result.data && result.data.text) ? result.data.text.trim() : "";
           if(text){ attachText = text.slice(0, 2000); var input = $("learn-in"); if(input && !input.value) input.value = text.slice(0, 80).replace(/\n/g," "); }
         }).catch(function(){});
-      } else {
-        var reader = new FileReader();
-        reader.onload = function(){ attachText = String(reader.result || "").slice(0, 4000); };
-        try{ reader.readAsText(f); }catch(e){}
       }
     };
   }
@@ -304,7 +299,7 @@
         recognizing = true; micBtn.classList.add("mic-on");
         try{ recognition.start(); }catch(e){ recognizing = false; micBtn.classList.remove("mic-on"); }
       };
-    } else micBtn.onclick = function(){ bubble("ai", "Speech input is not supported on this browser."); };
+    }
   }
   function cleanQuery(msg){
     var q = msg.replace(/^\s+|\s+$/g,"");
@@ -331,6 +326,11 @@
     var m = msg.replace(/^\s+/g,"");
     return /^(no|wrong|not that|actually|i meant|it'?s|the real|correct)/i.test(m) || /^(by|author)\s+/i.test(m);
   }
+  function looksLikeBook(q, authorQ, kind){
+    if(kind === "book" || authorQ) return true;
+    if(/\b(book|novel|author|chapter)\b/i.test(q)) return true;
+    return false;
+  }
   function resolveQuery(msg){
     var hints = extractBookHints(msg);
     var titleQ = hints.title || "";
@@ -344,13 +344,15 @@
       var a2 = authorQ || raw.replace(/^(no[,.]?\s*|wrong[,.]?\s*|not that[,.]?\s*|actually\s*|i meant\s*|it'?s\s*|the real\s*|correct[,.]?\s*)/i,"").replace(/^(by|author is|the author is|written by)\s+/i,"").replace(/^\s+|\s+$/g,"");
       if(a2 && a2.length > 1) return { titleQ: memory.lastTitle, authorQ: a2, kind: "book", note: "Correcting author for \""+memory.lastTitle+"\"" };
     }
-    if(/^(more|themes|characters|summary|simpler|tell me more|what about|who is|plot|setting)/i.test(raw) && (memory.lastTitle || memory.lastTopic)){
+    if(/^(more|themes|characters|summary|simpler|tell me more|what about|who is|plot|setting|causes|examples)/i.test(raw) && (memory.lastTitle || memory.lastTopic)){
       var base = memory.lastTitle || memory.lastTopic;
       var author = memory.lastAuthor || "";
       return { titleQ: base+(author?" "+author:"")+" "+raw, authorQ: author, kind: memory.lastKind || "topic", note: "Follow-up on "+base };
     }
     if(!titleQ) titleQ = cleanQuery(msg);
-    return { titleQ: titleQ, authorQ: authorQ, kind: (authorQ || /book|novel|read/i.test(msg)) ? "book" : "topic", note: "" };
+    var kind = "topic";
+    if(authorQ || /\b(book|novel|novella|memoir|biography)\b/i.test(msg) || /\bby\s+[A-Z]/i.test(msg)) kind = "book";
+    return { titleQ: titleQ, authorQ: authorQ, kind: kind, note: "" };
   }
   function rememberResult(title, author, kind){
     if(title){ memory.lastTitle = title; memory.lastTopic = title; }
@@ -381,17 +383,17 @@
     }).catch(function(){ return ""; });
   }
   function wikiSearch(q){
-    return fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(q)+"&srlimit=4&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+    return fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(q)+"&srlimit=5&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
       var arr = (data.query && data.query.search) ? data.query.search : [];
       return arr.map(function(x){ return { title: x.title }; });
     });
   }
   function wikiExtract(title){
-    return fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=1800&titles="+encodeURIComponent(title)+"&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
+    return fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=2000&titles="+encodeURIComponent(title)+"&format=json&origin=*").then(function(r){ if(!r.ok) throw new Error("fail"); return r.json(); }).then(function(data){
       var pages = data.query && data.query.pages ? data.query.pages : {}; var keys = Object.keys(pages);
       if(!keys.length) return null; var p = pages[keys[0]]; if(p.missing !== undefined) return null;
       var extract = (p.extract||"").trim(); if(!extract) return null;
-      return { title: p.title, extract: extract.slice(0,1800) };
+      return { title: p.title, extract: extract.slice(0,2000) };
     });
   }
   function scoreBook(h, titleQ, authorQ){
@@ -409,7 +411,7 @@
     var bits = clean.replace(/([.!?])/g,"$1\n").split("\n"), out = [];
     var limit = mode === "simple" ? 2 : (mode === "detailed" ? 6 : 4);
     for(var i=0;i<bits.length && out.length < limit;i++){ var s = bits[i].replace(/^\s+|\s+$/g,""); if(s.length > 28) out.push(s); }
-    var joined = out.length ? out.join(" ") : clean.slice(0, mode==="simple"?220:450);
+    var joined = out.length ? out.join(" ") : clean.slice(0, mode==="simple"?220:500);
     if(mode === "simple" && joined.length > 280) joined = joined.slice(0, 280) + "…";
     return joined;
   }
@@ -426,47 +428,89 @@
     if(titleQ && !resolved.note){
       memory.lastTitle = titleQ; memory.lastTopic = titleQ;
       if(authorQ) memory.lastAuthor = authorQ;
-      memory.lastKind = resolved.kind || "book";
+      memory.lastKind = resolved.kind || "topic";
     }
     if(resolved.note) setLive(resolved.note);
+    var wantBook = looksLikeBook(titleQ, authorQ, resolved.kind);
+    var searchQ = titleQ + (authorQ ? " " + authorQ : "");
     Promise.resolve()
-      .then(function(){ setLive('Searching Open Library for "'+titleQ+'"'+(authorQ?' by '+authorQ:'')+'…'); return delay(180); })
-      .then(function(){ return openLibrarySearch(titleQ+(authorQ?" "+authorQ:"")); })
-      .then(function(books){
-        setLive("Open Library: "+books.length+" matches · ranking best title…");
-        books.sort(function(a,b){ return scoreBook(b, titleQ, authorQ) - scoreBook(a, titleQ, authorQ); });
-        return books;
+      .then(function(){
+        if(wantBook) setLive('Searching books & topics for "'+titleQ+'"…');
+        else setLive('Researching "'+titleQ+'" across subjects…');
+        return delay(150);
       })
-      .then(function(books){
-        if(!books.length){
-          setLive("No Open Library hit · trying Wikipedia…");
-          return wikiSearch(titleQ+(authorQ?" "+authorQ:"")).then(function(){ return { books: [] }; });
+      .then(function(){
+        var jobs = [];
+        jobs.push(wikiSearch(searchQ).catch(function(){ return []; }));
+        jobs.push(wikiSearch(titleQ).catch(function(){ return []; }));
+        jobs.push(openLibrarySearch(searchQ).catch(function(){ return []; }));
+        if(authorQ) jobs.push(openLibrarySearch(titleQ).catch(function(){ return []; }));
+        return Promise.all(jobs);
+      })
+      .then(function(results){
+        var wikiTitles = [], books = [], seenW = {}, seenB = {};
+        for(var r=0;r<results.length;r++){
+          var arr = results[r] || [];
+          for(var i=0;i<arr.length;i++){
+            var item = arr[i];
+            if(item.workKey !== undefined || item.coverId !== undefined || (item.authors !== undefined && item.title)){
+              var bk = (item.title||"").toLowerCase();
+              if(!seenB[bk]){ seenB[bk]=1; books.push(item); }
+            } else if(item.title){
+              var wk = item.title.toLowerCase();
+              if(!seenW[wk]){ seenW[wk]=1; wikiTitles.push(item); }
+            }
+          }
         }
-        var top = books[0];
-        setLive("Best match: "+top.title+(top.authors?" — "+top.authors:"")+" · loading description…");
-        return fetchBookDescription(top.workKey).then(function(desc){ top.description = desc; return { books: books.slice(0,1) }; });
+        setLive("Found "+wikiTitles.length+" topic pages · "+books.length+" book records…");
+        books.sort(function(a,b){ return scoreBook(b, titleQ, authorQ) - scoreBook(a, titleQ, authorQ); });
+        return { books: books, wikiTitles: wikiTitles };
       })
       .then(function(pack){
-        setLive("Checking Wikipedia for more detail…");
-        var wikiQ = pack.books.length ? pack.books[0].title+(pack.books[0].authors?" "+pack.books[0].authors.split(",")[0]:"") : (titleQ+(authorQ?" "+authorQ:""));
-        return wikiSearch(wikiQ).then(function(titles){
-          if(!titles.length) return pack;
-          setLive("Reading Wikipedia: "+titles[0].title+"…");
-          return wikiExtract(titles[0].title).then(function(ex){ pack.wiki = ex; return pack; }).catch(function(){ return pack; });
-        }).catch(function(){ return pack; });
+        var wikiJobs = [];
+        var tops = (pack.wikiTitles || []).slice(0, wantBook ? 2 : 3);
+        for(var i=0;i<tops.length;i++){
+          (function(t){ wikiJobs.push(wikiExtract(t.title).then(function(ex){ return ex; }).catch(function(){ return null; })); })(tops[i]);
+        }
+        var bookJob = Promise.resolve(null);
+        if(wantBook && pack.books && pack.books.length){
+          var top = pack.books[0];
+          setLive("Best book match: "+top.title+(top.authors?" — "+top.authors:"")+"…");
+          bookJob = fetchBookDescription(top.workKey).then(function(desc){ top.description = desc; return top; });
+        } else if(!wantBook && pack.wikiTitles.length){
+          setLive("Reading: "+pack.wikiTitles[0].title+"…");
+        } else if(pack.books && pack.books.length && !pack.wikiTitles.length){
+          var top2 = pack.books[0];
+          bookJob = fetchBookDescription(top2.workKey).then(function(desc){ top2.description = desc; return top2; });
+        }
+        return Promise.all([Promise.all(wikiJobs), bookJob, Promise.resolve(pack)]);
       })
-      .then(function(pack){
+      .then(function(triple){
         endLive(); $("learn-btn").disabled = false; input.focus();
-        if((!pack.books || !pack.books.length) && !pack.wiki){
-          bubbleResult("I could not find a solid match.<br/><br/>Try the full title, or add the author (I remember your last title).", "No match", startedAt);
+        var extracts = (triple[0] || []).filter(function(x){ return x && x.extract; });
+        var book = triple[1];
+        var pack = triple[2] || { books: [], wikiTitles: [] };
+        if(!extracts.length && !book && !(pack.books && pack.books.length)){
+          bubbleResult("I could not find solid info on that yet.<br/><br/>Try a clearer topic (e.g. photosynthesis, French Revolution, Pythagorean theorem).", "No match", startedAt);
           return;
         }
-        if(pack.books && pack.books.length){
-          var b = pack.books[0];
+        if(extracts.length && !wantBook){
+          for(var i=0;i<extracts.length;i++){
+            var ex = extracts[i];
+            var wdesc = rewriteDesc(ex.extract, outputMode);
+            if(!wdesc) continue;
+            bubbleResult("<strong>"+esc(ex.title)+"</strong><br/><br/>"+esc(wdesc), ex.title+"\n\n"+wdesc, startedAt);
+            rememberResult(ex.title, "", "topic");
+          }
+          bubble("ai", "Ask a follow-up (causes, examples, simpler, more) — I remember this topic.");
+          return;
+        }
+        if(book || (pack.books && pack.books.length)){
+          var b = book || pack.books[0];
           var desc = rewriteDesc(b.description, outputMode);
-          if(!desc && pack.wiki) desc = rewriteDesc(pack.wiki.extract, outputMode);
-          if(!desc && b.subjects && b.subjects.length) desc = "A book often filed under: "+b.subjects.slice(0,5).join(", ")+". "+(b.year?"First published around "+b.year+". ":"");
-          if(!desc) desc = "Matched on Open Library"+(b.year?" (about "+b.year+")":"")+".";
+          if(!desc && extracts.length) desc = rewriteDesc(extracts[0].extract, outputMode);
+          if(!desc && b.subjects && b.subjects.length) desc = "Often tagged: "+b.subjects.slice(0,5).join(", ")+". "+(b.year?"Around "+b.year+". ":"");
+          if(!desc) desc = "Listed in Open Library"+(b.year?" (about "+b.year+")":"")+".";
           var cover = coverUrl(b.coverId);
           var plain = b.title+" — "+(b.authors||"")+(b.year?" ("+b.year+")":"")+"\n\n"+desc;
           var html = "";
@@ -476,23 +520,30 @@
           } else {
             html += '<strong>'+esc(b.title)+'</strong><br/><span style="color:#a1a1aa;font-size:12px">'+esc((b.authors||"")+(b.year?" · "+b.year:""))+'</span><br/><br/>'+esc(desc);
           }
-          if(b.subjects && b.subjects.length && outputMode !== "simple"){
-            html += '<br/><br/><span style="color:#71717a;font-size:12px">Topics: '+esc(b.subjects.slice(0,6).join(", "))+'</span>';
-          }
           bubbleResult(html, plain, startedAt);
           rememberResult(b.title, b.authors, "book");
         }
-        if(pack.wiki && pack.wiki.extract && outputMode !== "simple"){
-          var wdesc = rewriteDesc(pack.wiki.extract, outputMode);
-          if(wdesc && (!pack.books || !pack.books.length || wdesc.length > 80)){
-            bubbleResult("<strong>"+esc(pack.wiki.title)+"</strong><br/><br/>"+esc(wdesc), pack.wiki.title+"\n\n"+wdesc, startedAt);
-            rememberResult(pack.wiki.title, "", "topic");
+        if(extracts.length && wantBook){
+          for(var i=0;i<Math.min(extracts.length,2);i++){
+            var ex2 = extracts[i];
+            var wdesc2 = rewriteDesc(ex2.extract, outputMode);
+            if(wdesc2 && wdesc2.length > 60) bubbleResult("<strong>"+esc(ex2.title)+"</strong><br/><br/>"+esc(wdesc2), ex2.title+"\n\n"+wdesc2, startedAt);
           }
         }
+        if(!book && !(pack.books && pack.books.length) && extracts.length){
+          for(var i=0;i<extracts.length;i++){
+            var ex3 = extracts[i];
+            var wdesc3 = rewriteDesc(ex3.extract, outputMode);
+            if(!wdesc3) continue;
+            bubbleResult("<strong>"+esc(ex3.title)+"</strong><br/><br/>"+esc(wdesc3), ex3.title+"\n\n"+wdesc3, startedAt);
+            rememberResult(ex3.title, "", "topic");
+          }
+        }
+        bubble("ai", "Follow-ups: more, simpler, causes, examples, themes…");
       })
       .catch(function(e){
         endLive(); $("learn-btn").disabled = false;
-        bubbleResult("Something went wrong: "+esc(String(e && e.message ? e.message : e))+"<br/>Check your connection and try again.", "Error", startedAt);
+        bubbleResult("Something went wrong: "+esc(String(e && e.message ? e.message : e)), "Error", startedAt);
       });
   }
   $("learn-btn").onclick = sendLearn;
