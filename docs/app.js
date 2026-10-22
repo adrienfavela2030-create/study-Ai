@@ -27,9 +27,10 @@
       }; })(pills[i]);
     }
   }
-  var hwMode = "explain", hwStyle = "grade7", hwQuestions = [];
+  var hwMode = "explain", hwStyle = "grade7", hwQuestions = [], hwSubject = "";
   setupPills("hw-modes", "data-m", function(v){ hwMode = v; });
   setupPills("hw-style", "data-s", function(v){ hwStyle = v; });
+  setupPills("hw-subject", "data-subj", function(v){ hwSubject = v; });
   function setHwStep(n){
     var labels = ["Step 1 · Add the worksheet","Step 2 · Pick questions","Step 3 · How to help","Step 4 · Result"];
     $("hw-step-label").textContent = labels[n-1] || "";
@@ -40,6 +41,35 @@
     $("hw-s3").style.display = n===3 ? "block" : "none";
     $("hw-s4").style.display = n===4 ? "block" : "none";
   }
+  /* ---- OCR text cleanup: remove junk tokens so question detection works ---- */
+  function cleanOcrText(raw){
+    if(!raw) return "";
+    var lines = raw.replace(/\r/g,"\n").split("\n"), out = [], junkFound = 0, totalTokens = 0;
+    for(var i=0;i<lines.length;i++){
+      var line = lines[i];
+      // strip box-drawing / table border runs and stray symbols
+      line = line.replace(/[\u2500-\u257F\u2550-\u256C]+/g," ").replace(/[=<>|]+/g," ");
+      var tokens = line.split(/\s+/), kept = [];
+      for(var j=0;j<tokens.length;j++){
+        var w = tokens[j]; if(!w) continue;
+        totalTokens++;
+        // question numbers like "1." "2)" "Q3" stay
+        var isQNum = /^(?:(?:question\s*)?\d{1,2}|[Qq]\d{1,2})[\).:\-]?$/.test(w);
+        if(isQNum){ kept.push(w); continue; }
+        var hasLetter = /[A-Za-z]/.test(w);
+        // symbol-only junk (e.g. "=<)", "|", "-")
+        if(!hasLetter && !/^\d+(?:[\).:,]\d*)?$/.test(w)){ junkFound++; continue; }
+        // lone letters that are not words (OCR noise like "k", "he" fragments)
+        if(/^[A-Za-z]$/.test(w) && !/^(a|A|I)$/.test(w)){ junkFound++; continue; }
+        // words with letters but no vowel and no digits (e.g. "xlw")
+        if(hasLetter && w.length >= 3 && !/[aeiouyAEIOUY]/.test(w)){ junkFound++; continue; }
+        kept.push(w);
+      }
+      var joined = kept.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
+      if(joined) out.push(joined);
+    }
+    return { text: out.join("\n"), junkRatio: totalTokens ? junkFound/totalTokens : 1 };
+  }
   function isGibberish(text){
     if(!text || text.length < 8) return true;
     var letters = (text.match(/[a-zA-Z]/g) || []).length;
@@ -49,10 +79,10 @@
     var weird = 0, singles = 0;
     for(var i=0;i<words.length;i++){
       var w = words[i];
-      if(w.length === 1) singles++;
+      if(w.length === 1 && !/^(a|A|I)$/.test(w)) singles++;
       if(w.length >= 3 && !/[aeiouAEIOU]/.test(w) && /[a-zA-Z]{3,}/.test(w)) weird++;
     }
-    return weird / words.length > 0.35 || singles / words.length > 0.25;
+    return weird / words.length > 0.30 || singles / words.length > 0.20;
   }
   function preprocessImage(file){
     return new Promise(function(resolve){
@@ -87,11 +117,17 @@
         if(statusEl && m && m.status === "recognizing text" && m.progress) statusEl.textContent = "Reading text… "+Math.round(m.progress*100)+"%";
       }});
     }).then(function(result){
-      var text = (result && result.data && result.data.text) ? result.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim() : "";
+      var raw = (result && result.data && result.data.text) ? result.data.text : "";
+      var cleaned = cleanOcrText(raw.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," "));
+      var text = cleaned.text;
       if(text && text.length > 5 && !isGibberish(text)){
         if(textEl) textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
-        if(statusEl) statusEl.textContent = "Text ready — fix any mistakes, then continue.";
-      } else if(statusEl) statusEl.textContent = "Could not read that photo clearly. Type the questions.";
+        if(statusEl){
+          statusEl.textContent = cleaned.junkRatio > 0.15
+            ? "Read the photo, but some words look off — please double-check the text below."
+            : "Text ready — fix any mistakes, then continue.";
+        }
+      } else if(statusEl) statusEl.textContent = "Could not read that photo clearly. Type the questions below.";
     }).catch(function(){ if(statusEl) statusEl.textContent = "Could not read photo. Type the questions below."; });
   }
   function onHwFile(input){ var f = input.files && input.files[0]; if(!f) return; runOCR(f, $("hw-ocr"), $("hw-text"), $("hw-prev")); }
@@ -117,7 +153,9 @@
   $("hw-next1").onclick = function(){
     var t = $("hw-text").value.replace(/^\s+|\s+$/g,"");
     if(!t){ $("hw-ocr").textContent = "Add a photo or type the worksheet text first."; return; }
-    if(isGibberish(t)){ $("hw-ocr").textContent = "That text looks unreadable. Fix it or type the real questions."; return; }
+    var cleaned = cleanOcrText(t); t = cleaned.text;
+    if(!t || isGibberish(t)){ $("hw-ocr").textContent = "That text looks unreadable. Fix it or type the real questions."; return; }
+    $("hw-text").value = t;
     hwQuestions = parseQuestions(t);
     var box = $("hw-qlist"); box.innerHTML = "";
     for(var i=0;i<hwQuestions.length;i++){
@@ -128,15 +166,145 @@
     setHwStep(2);
   };
   $("hw-back2").onclick = function(){ setHwStep(1); };
-  $("hw-next2").onclick = function(){ setHwStep(3); };
+  /* ---- task understanding: what is each question actually asking? ---- */
+  function classifyTask(q){
+    var t = q.replace(/\s+/g," ").toLowerCase();
+    if(/\b\d+\s*[\+\-\x\u00d7\*/]\s*\d+/.test(t) || /\b(solve|calculate|compute|evaluate|find the value)\b/.test(t)) return "math";
+    if(/\b[a-d]\s*[).]/.test(q) || /\b(multiple choice|circle the)\b/.test(t)) return "choice";
+    if(/\b(essay|write a|write about|paragraph|one page|story about)\b/.test(t)) return "essay";
+    if(/\b(mainly|mostly|best describes|main idea|what is the story|what is the passage|what is the text)\b/.test(t)) return "main-idea";
+    if(/\b(what does .* mean|closest in meaning|synonym|antonym|vocabulary|define)\b/.test(t)) return "vocab";
+    if(/\b(why|explain|how)\b/.test(t)) return "explain";
+    if(/\b(who|what|when|where|which|name)\b/.test(t)) return "recall";
+    return "general";
+  }
+  /* ---- safe arithmetic: evaluate + - * / ( ) ---- */
+  function solveMath(text){
+    var expr = text.replace(/[\u00d7\x]/g,"*").replace(/\u00f7/g,"/").replace(/[^0-9+\-*/(). ]/g," ");
+    var m = expr.match(/[-]?\d+(?:\.\d+)?(?:\s*[+\-*/]\s*[-]?\d+(?:\.\d+)?)+/);
+    if(!m) return null;
+    var src = m[0].replace(/\s+/g," ").trim();
+    try{
+      var val = Function("'use strict';return ("+src+")")();
+      if(typeof val !== "number" || !isFinite(val)) return null;
+      return { expr: src, value: Math.round(val*10000)/10000 };
+    }catch(e){ return null; }
+  }
+  /* ---- find evidence in the worksheet passage (not in questions) ---- */
+  function passageEvidence(qText, allText){
+    var skip = {"what":1,"which":1,"about":1,"this":1,"that":1,"from":1,"your":1,"best":1,"describes":1,"mainly":1,"mostly":1,"story":1,"text":1,"passage":1,"question":1,"answer":1,"sentence":1};
+    var qWords = qText.toLowerCase().replace(/[^a-z ]/g," ").split(/\s+/)
+      .filter(function(w){ return w.length > 3 && !skip[w]; });
+    var sents = allText.replace(/\s+/g," ").split(/(?=[A-Z][^.!?]{20,}[.!?])/g);
+    var best = null, bestScore = 0;
+    for(var i=0;i<sents.length;i++){
+      var s = sents[i]; if(s.length < 25 || s.length > 400) continue;
+      if(/^\s*(?:question\s*)?\d{1,2}[\).:\-]/i.test(s)) continue;
+      var l = s.toLowerCase(), score = 0;
+      for(var j=0;j<qWords.length;j++) if(l.indexOf(qWords[j]) !== -1) score++;
+      if(score > bestScore){ bestScore = score; best = s; }
+    }
+    return bestScore > 0 ? { sentence: best.trim(), score: bestScore } : null;
+  }
+  /* ---- essay scaffolding ---- */
+  function essayPlan(qText, styleLabel){
+    var words = { grade7: "250\u2013300", high: "400\u2013500", normal: "250\u2013400" }[hwStyle] || "250\u2013400";
+    return [
+      "Essay plan (" + words + " words, " + styleLabel.toLowerCase() + " level)",
+      "",
+      "1. Hook + background: start with an interesting fact or short scene.",
+      "2. Thesis: directly answer \u201c" + qText.slice(0,90) + "\u201d in one clear sentence.",
+      "3. Body paragraph 1 \u2014 strongest reason: point \u2192 quote/example from the text \u2192 explanation.",
+      "4. Body paragraph 2 \u2014 second reason: same structure.",
+      "5. Conclusion: restate the thesis in new words + the bigger takeaway. No new facts.",
+      "",
+      "Sentence starters:",
+      "\u2022 \u201cOne reason ___ is that the text says ___\u2026\u201d",
+      "\u2022 \u201cThis matters because ___\u2026\u201d",
+      "\u2022 \u201cIn conclusion, ___ shows that ___\u2026\u201d"
+    ];
+  }
+  /* ---- per-question answer builder ---- */
+  function buildAnswer(q, task, subject, mode, allText, styleLabel){
+    var lines = [], math = null, evidence = null;
+    if(task === "math") math = solveMath(q.text);
+    if(["main-idea","explain","recall","general","vocab"].indexOf(task) !== -1) evidence = passageEvidence(q.text, allText);
+    if(task === "essay" || (mode === "essay" && task !== "math")){
+      return essayPlan(q.text, styleLabel).join("\n");
+    }
+    if(task === "math" && math){
+      if(mode === "explain"){
+        lines.push("How to solve " + math.expr + ":");
+        lines.push("1. Write the problem out: " + math.expr);
+        lines.push("2. Order of operations: brackets, then \u00d7 \u00f7, then + \u2212");
+        lines.push("3. Work it out \u2014 you should get " + math.value);
+        lines.push("4. Check: reread and confirm it answers what was asked.");
+      } else {
+        lines.push("Answer: " + math.value);
+        if(mode !== "answer") lines.push("(" + math.expr + " = " + math.value + " \u2014 computed with the arithmetic checker, not guessed)");
+      }
+      return lines.join("\n");
+    }
+    if(task === "math" && !math){
+      return mode === "explain"
+        ? "1. Write what the problem gives you\n2. Decide which operation fits (+ \u2212 \u00d7 \u00f7)\n3. Solve step by step and check the result"
+        : "I couldn't read the numbers cleanly from this question \u2014 type it out fully (e.g. \u201c12 \u00d7 4\u201d) and I'll compute it exactly.";
+    }
+    if(task === "choice"){
+      lines.push("Multiple-choice strategy:");
+      lines.push("\u2022 Cross out answers that are clearly wrong first");
+      lines.push("\u2022 Go back to the passage lines about this question \u2014 the right choice restates them");
+      if(evidence) lines.push("\u2022 Your worksheet says: \u201c" + evidence.sentence.slice(0,180) + "\u201d \u2014 pick the choice closest to this.");
+      return lines.join("\n");
+    }
+    if(evidence){
+      lines.push("Evidence from your worksheet: \u201c" + evidence.sentence.slice(0,200) + "\u201d");
+      if(mode !== "explain"){
+        lines.push("");
+        lines.push("Draft answer: " + evidence.sentence.replace(/^[A-Z]/, function(c){ return c.toLowerCase(); }).slice(0, 150).replace(/[.!?]$/,"") + ".");
+        lines.push("(Built from the passage above \u2014 rewrite it in your own words so it sounds like you.)");
+      } else {
+        lines.push("");
+        lines.push("How to answer this yourself:");
+        lines.push("1. Find that sentence in the passage");
+        lines.push("2. Say what it shows in your own words");
+        lines.push("3. Add one more detail from the passage");
+      }
+      return lines.join("\n");
+    }
+    var tips = subjectTips(subject);
+    if(mode === "explain"){
+      lines.push("What this question is asking");
+      lines.push("\u2022 Task: " + ({ "main-idea":"find the big idea","vocab":"figure out what a word means","explain":"give reasons","recall":"find the fact in the text","general":"understand the question" })[task]);
+      lines.push("\u2022 " + tips[1]);
+      lines.push("\u2022 If the passage isn't in the text box, add it \u2014 then I can quote exact evidence.");
+    } else {
+      lines.push("I don't have the passage this question refers to, so I won't guess an answer.");
+      lines.push("Add the passage (paste or photograph it) and I'll answer with evidence from it.");
+    }
+    return lines.join("\n");
+  }
+  $("hw-next2").onclick = function(){
+    /* auto-pick the subject; the student can change it on the next step */
+    var sel = [];
+    for(var i=0;i<hwQuestions.length;i++){ var cb = $("qq"+i); if(cb && cb.checked) sel.push(hwQuestions[i]); }
+    if(!sel.length) sel = hwQuestions.slice(0,1);
+    var guessed = detectSubject(sel.map(function(q){ return q.text; }).join(" "));
+    hwSubject = guessed;
+    var pills = $("hw-subject").getElementsByClassName("pill");
+    for(var p=0;p<pills.length;p++) pills[p].classList.toggle("on", pills[p].getAttribute("data-subj") === guessed);
+    $("hw-subject-note").textContent = "Picked \u201c" + SUBJECTS[guessed] + "\u201d from your questions \u2014 tap a different one if that's wrong.";
+    setHwStep(3);
+  };
   $("hw-back3").onclick = function(){ setHwStep(2); };
   $("hw-restart").onclick = function(){ $("hw-text").value=""; $("hw-prev").style.display="none"; $("hw-ocr").textContent=""; $("hw-opt").value=""; setHwStep(1); };
+  var SUBJECTS = { math: "Math", science: "Science", english: "English / Reading", history: "History / Social Studies", general: "General" };
   function detectSubject(text){
     var t = text.toLowerCase();
-    if(/\d\s*[\+\-\x\*\/=]|equation|solve for|algebra|geometry|fraction|percent|area of|volume/.test(t)) return "math";
-    if(/cell|photosynthesis|atom|gravity|force|energy|organism|hypothesis|biology|chemistry|physics/.test(t)) return "science";
-    if(/essay|paragraph|theme|character|metaphor|poem|author|novel|chapter|grammar|thesis/.test(t)) return "english";
-    if(/war|century|civilization|revolution|president|empire|history|ancient|colony/.test(t)) return "history";
+    if(/\d\s*[\+\-\x\*\/=]|equation|solve for|algebra|geometry|fraction|percent|area of|volume|product of|sum of|quotient/.test(t)) return "math";
+    if(/cell|photosynthesis|atom|gravity|force|energy|organism|hypothesis|biology|chemistry|physics|ecosystem|mars|planet/.test(t)) return "science";
+    if(/essay|paragraph|theme|character|metaphor|poem|author|novel|chapter|grammar|thesis|fable|story|passage|narrator|plot|stanza/.test(t)) return "english";
+    if(/war|century|civilization|revolution|president|empire|history|ancient|colony|amendment|constitution|dynasty/.test(t)) return "history";
     return "general";
   }
   function subjectTips(subj){
@@ -156,20 +324,25 @@
     for(var i=0;i<hwQuestions.length;i++){ var cb = $("qq"+i); if(cb && cb.checked) selected.push(hwQuestions[i]); }
     if(!selected.length) selected = hwQuestions.slice(0,1);
     var opt = $("hw-opt").value.replace(/^\s+|\s+$/g,"");
-    var allText = selected.map(function(q){ return q.text; }).join(" ");
-    var subj = detectSubject(allText), lines = [];
+    var allText = $("hw-text").value;
+    var subj = hwSubject || detectSubject(allText);
+    var styleLabel = hwStyle === "grade7" ? "7th grade+" : hwStyle === "high" ? "high school" : "everyday";
+    var lines = [];
     lines.push("Plan — do in this order:");
     for(var i=0;i<selected.length;i++) lines.push("  "+(i+1)+". #"+selected[i].n+" — "+selected[i].text.slice(0,80));
-    lines.push(""); lines.push("Subject focus: "+subj);
-    var tips = subjectTips(subj); for(var ti=0;ti<tips.length;ti++) lines.push(tips[ti]);
-    lines.push(""); lines.push("Mode: "+(hwMode==="explain"?"Explanation":hwMode==="answer"?"Answer":"Answer + Explanation"));
-    lines.push(styleGuide(hwStyle)); if(opt) lines.push("Your note: "+opt); lines.push("");
+    lines.push("");
+    lines.push("Subject: "+SUBJECTS[subj]+(hwSubject ? " (you picked this)" : " (auto-detected)"));
+    lines.push("Mode: "+({ explain: "Help me understand", answer: "Give me the answer", both: "Answer + Explanation", essay: "Essay mode" })[hwMode]);
+    lines.push("Writing level: "+styleLabel);
+    if(opt) lines.push("Your note: "+opt);
+    lines.push("");
     for(var i=0;i<selected.length;i++){
       var q = selected[i];
-      lines.push("────────"); lines.push("Question #"+q.n); lines.push(q.text); lines.push("");
-      if(hwMode==="explain"){ lines.push("Explanation"); lines.push("1. What this asks"); lines.push("2. What you need"); lines.push("3. Steps"); lines.push("4. Common mistakes"); }
-      else if(hwMode==="answer"){ lines.push("Answer approach"); lines.push("• State clearly"); lines.push("Draft: _______________"); }
-      else { lines.push("Answer + Explanation"); lines.push("Answer: _______________"); lines.push("Why:"); }
+      var task = classifyTask(q.text);
+      lines.push("────────");
+      lines.push("Question #"+q.n + "  ·  " + ({ math:"math", choice:"multiple choice", essay:"essay", "main-idea":"main idea", vocab:"vocabulary", explain:"explain", recall:"recall", general:"general" })[task]);
+      lines.push(q.text); lines.push("");
+      lines.push(buildAnswer(q, task, subj, hwMode, allText, styleLabel));
       lines.push("");
     }
     $("hw-out").innerHTML = '<div class="t">Homework help</div>'+esc(lines.join("\n")); setHwStep(4);
@@ -320,6 +493,7 @@
     var m = msg.replace(/^\s+|\s+$/g,"");
     if(/^(by|author|written by|the author is|author is)\s+/i.test(m)) return true;
     if(memory.lastTitle && /^[A-Z][a-zA-Z.\-']+(?:\s+[A-Z][a-zA-Z.\-']+){0,3}$/.test(m) && m.split(/\s+/).length <= 4) return true;
+    if(memory.lastTitle && /^the author\b/i.test(m)) return true;
     return false;
   }
   function isCorrection(msg){
@@ -361,8 +535,11 @@
     memory.history.push({ title: title, author: author, kind: kind, t: Date.now() });
     if(memory.history.length > 20) memory.history.shift();
   }
-  function openLibrarySearch(q){
-    return fetch("https://openlibrary.org/search.json?q="+encodeURIComponent(q)+"&limit=8").then(function(r){
+  function openLibrarySearch(q, title, author){
+    var url = "https://openlibrary.org/search.json?limit=10&q=" + encodeURIComponent(q);
+    if(title) url += "&title=" + encodeURIComponent(title);
+    if(author) url += "&author=" + encodeURIComponent(author);
+    return fetch(url).then(function(r){
       if(!r.ok) throw new Error("Open Library unavailable"); return r.json();
     }).then(function(data){
       var docs = data.docs || [], hits = [];
@@ -443,8 +620,9 @@
         var jobs = [];
         jobs.push(wikiSearch(searchQ).catch(function(){ return []; }));
         jobs.push(wikiSearch(titleQ).catch(function(){ return []; }));
-        jobs.push(openLibrarySearch(searchQ).catch(function(){ return []; }));
-        if(authorQ) jobs.push(openLibrarySearch(titleQ).catch(function(){ return []; }));
+        // exact title + author search is far more accurate than a generic q
+        jobs.push(openLibrarySearch(searchQ, titleQ, authorQ).catch(function(){ return []; }));
+        jobs.push(openLibrarySearch(searchQ, titleQ, "").catch(function(){ return []; }));
         return Promise.all(jobs);
       })
       .then(function(results){
@@ -454,6 +632,12 @@
           for(var i=0;i<arr.length;i++){
             var item = arr[i];
             if(item.workKey !== undefined || item.coverId !== undefined || (item.authors !== undefined && item.title)){
+              // when the student gave an author, drop books by other authors
+              if(authorQ){
+                var al = (item.authors||"").toLowerCase();
+                var asum = authorQ.toLowerCase().split(/\s+/).some(function(p){ return p.length > 2 && al.indexOf(p) !== -1; });
+                if(!asum) continue;
+              }
               var bk = (item.title||"").toLowerCase();
               if(!seenB[bk]){ seenB[bk]=1; books.push(item); }
             } else if(item.title){
@@ -464,9 +648,25 @@
         }
         setLive("Found "+wikiTitles.length+" topic pages · "+books.length+" book records…");
         books.sort(function(a,b){ return scoreBook(b, titleQ, authorQ) - scoreBook(a, titleQ, authorQ); });
-        return { books: books, wikiTitles: wikiTitles };
+        // if the best match isn't close to the typed title, ask instead of guessing
+        if(wantBook && books.length){
+          var bt = (books[0].title||"").toLowerCase();
+          var tq = (titleQ||"").toLowerCase();
+          if(bt !== tq && bt.indexOf(tq) === -1 && tq.indexOf(bt) === -1){
+            books = books.slice(0, 3);
+            endLive(); $("learn-btn").disabled = false; input.focus();
+            var picks = books.map(function(b, bi){
+              return (bi+1)+". \u201c"+b.title+"\u201d by "+(b.authors||"?")+(b.year?" ("+b.year+")":"");
+            });
+            bubbleResult("I found some books, but none is an exact match for \u201c"+esc(titleQ)+"\u201d.<br/><br/>Pick one (send the number), or send: <b>the author [name]</b> to narrow it down.<br/><br/>"+picks.join("<br/>"), "Pick: \n"+picks.join("\n"), startedAt);
+            rememberResult("", "", "");
+            return;
+          }
+        }
+        return { books: books, wikiTitles: wikiTitles, earlyReturn: true };
       })
       .then(function(pack){
+        if(!pack) return; // early return already answered the student
         var wikiJobs = [];
         var tops = (pack.wikiTitles || []).slice(0, wantBook ? 2 : 3);
         for(var i=0;i<tops.length;i++){
@@ -486,6 +686,7 @@
         return Promise.all([Promise.all(wikiJobs), bookJob, Promise.resolve(pack)]);
       })
       .then(function(triple){
+        if(!triple) return; // early return already answered the student
         endLive(); $("learn-btn").disabled = false; input.focus();
         var extracts = (triple[0] || []).filter(function(x){ return x && x.extract; });
         var book = triple[1];

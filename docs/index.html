@@ -126,11 +126,21 @@ h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-.04em}
           <button type="button" class="btn" id="hw-next2">Continue</button>
         </div>
         <div id="hw-s3" style="display:none">
+          <p class="lbl">Subject</p>
+          <div class="pill-row" id="hw-subject">
+            <button type="button" class="pill" data-subj="math">Math</button>
+            <button type="button" class="pill" data-subj="science">Science</button>
+            <button type="button" class="pill" data-subj="english">English / Reading</button>
+            <button type="button" class="pill" data-subj="history">History / Social Studies</button>
+            <button type="button" class="pill" data-subj="general">General</button>
+          </div>
+          <p class="status" id="hw-subject-note"></p>
           <p class="lbl">How should I help?</p>
           <div class="pill-row" id="hw-modes">
-            <button type="button" class="pill on" data-m="explain">Explanation</button>
-            <button type="button" class="pill" data-m="answer">Answer</button>
+            <button type="button" class="pill on" data-m="explain">Help me understand</button>
+            <button type="button" class="pill" data-m="answer">Give me the answer</button>
             <button type="button" class="pill" data-m="both">Answer + Explanation</button>
+            <button type="button" class="pill" data-m="essay">Essay mode</button>
           </div>
           <p class="lbl">Writing style (essays)</p>
           <div class="pill-row" id="hw-style">
@@ -212,6 +222,6 @@ h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-.04em}
   </nav>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
