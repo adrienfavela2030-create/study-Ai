@@ -191,7 +191,9 @@ def main():
     ckpt_path = run_dir / "checkpoint.pt"
     torch.save(
         {"model": model.state_dict(), "step": args.steps, "stage": args.stage,
-         "created": datetime.now(timezone.utc).isoformat(), "vocab": tok.itos},
+         "created": datetime.now(timezone.utc).isoformat(), "vocab": tok.itos,
+         "model_config": {"d_model": args.width, "n_heads": args.heads,
+                          "n_layers": args.layers, "context_length": args.context}},
         ckpt_path,
     )
     with open(run_dir / "log.json", "w") as f:

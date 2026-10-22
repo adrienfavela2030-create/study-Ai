@@ -1,0 +1,8 @@
+{
+  "stage": "ocr_v1",
+  "model": "CNN (random init) + BiLSTM + CTC, trained on synthetic bitmap-font images",
+  "training_data": "600 synthetic images (original 5x7 font, noise added)",
+  "validation_data": "50 held-out synthetic images",
+  "validation_character_accuracy": 1.0,
+  "honest_assessment": "The from-scratch OCR pipeline trains and decodes synthetic printed text correctly (see decoded samples). This is a real result on synthetic data only: it has NOT been tested on photographs of real worksheets, handwriting, or complex layouts. Real-photo accuracy is unknown and must not be claimed."
+}

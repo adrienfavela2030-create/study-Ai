@@ -21,5 +21,26 @@
   },
   "ocr_training": {
     "status": "not_started"
+  },
+  "english_v1": {
+    "status": "completed",
+    "when": "2026-10-22T03:43:33.860145+00:00",
+    "checkpoint": "runs/english_v1/checkpoint.pt"
+  },
+  "knowledge_v1": {
+    "status": "completed",
+    "when": "2026-10-22T03:43:40.767138+00:00",
+    "checkpoint": "runs/knowledge_v1/checkpoint.pt"
+  },
+  "supervised_v1": {
+    "status": "completed",
+    "when": "2026-10-22T03:43:45.974118+00:00",
+    "checkpoint": "runs/supervised_v1/checkpoint.pt"
+  },
+  "ocr_v1": {
+    "status": "completed",
+    "when": "2026-10-22T03:49:11.377203+00:00",
+    "checkpoint": "runs/ocr_v1/checkpoint.pt",
+    "note": "Synthetic printed text only; not tested on real photos."
   }
 }

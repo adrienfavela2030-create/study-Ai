@@ -1,58 +1,73 @@
 # Study AI — Status Report (honest)
 
-Updated: 2026-10-21, after the audit-driven repair round.
+Updated: 2026-10-21, after the audit-driven repair round and the first
+real PyTorch training runs.
 
-## Verified capabilities (each backed by an executed test)
+## Real training runs (all executed in this environment)
+
+| Stage | Params | Val loss before → after | Status |
+|---|---|---|---|
+| numpy_smoke_v2 (NumPy, corrected) | 13,464 | 5.99 → 3.15 | verified: alignment, gradcheck (1.9e-7), deterministic reload, resume |
+| english_v1 | 357,312 | 4.44 → 1.34 | real improvement on held-out text |
+| knowledge_v1 (resumed from english) | 357,312 | 1.28 → 1.34 | **val regressed** — overfit the 36-line knowledge corpus |
+| supervised_v1 (resumed from knowledge) | 357,312 | 3.48 → 4.11 (eval) / 4.4 → 0.26 (masked response loss) | **val regressed** — overfit 11 SFT examples |
+| ocr_v1 (from-scratch CNN+BiLSTM+CTC) | — | char accuracy **1.000** on 50 held-out synthetic images | real, synthetic data only |
+
+Generated samples from supervised_v1 (recorded verbatim, unedited):
+
+- "The water cycle ofrae th n a isha aa kan e  by enthe sth h"
+- "Question 1: What do plants need, the rine enthby pa by entuoea…"
+
+**The samples are not English.** The model learned character statistics
+(common words like "the") but cannot generate coherent sentences. Loss
+going down on tiny corpora (a few KB) is memorization, not language
+learning — which is why knowledge/supervised validation regressed. This
+is the honest state of the "AI" today: the app's answers come from
+deterministic rules + retrieval, never from this model, and nothing in
+the UI claims otherwise.
+
+## What is verified (each backed by an executed test)
 
 | Capability | Evidence |
 |---|---|
-| From-scratch training pipeline end to end | `runs/numpy_smoke_v2/` — real 120-step run; gradcheck 1.9e-7 with randomized gamma; next-token alignment proven; deterministic reload; resume works |
+| Training pipeline correctness | double-shift fixed; next-token alignment test; gradcheck with randomized non-unit gamma (1.9e-7) |
 | Tokenizer round-trips spec cases | 12 cases (apostrophes, dates, math, quotes, newlines, titles) — 0 failures |
-| Checkpoint/vocab compatibility errors loudly | `test_checkpoint_vocab_mismatch_is_an_error` |
-| Deterministic math solving (brackets, order of operations) | `12 × (4 + 1) = 60` tested in JS and Python |
-| Help Me Understand withholds the final answer | tested in both languages |
-| OCR cleanup non-destructive; junk reported, never silent | Node tests on the deployed `docs/app.js` |
+| Checkpoints carry vocab + model config; mismatch is an error | Python tests |
+| Deterministic math (brackets, order of operations) | `12 × (4 + 1) = 60` tested in JS and Python |
+| Help Me Understand withholds final answers | tested in both languages |
+| OCR cleanup non-destructive; removals reported to the student | Node tests on deployed `docs/app.js` |
 | Evidence excludes questions/choices/instructions | Node test |
-| Book corrections keep the requested title; numeric picks work | Node tests |
+| Book corrections keep requested title; numeric picks work | Node tests |
 | Question selection preserves numbers 2, 7, 10 | Python test |
-| Source-grounding: quotes must match, snippets can't be cited | Python tests |
-| Research summary counts only opened pages | code + tests |
+| Quotes must match sources; snippets can't be cited | Python tests |
+| From-scratch OCR trains and decodes synthetic text | `runs/ocr_v1/` checkpoint + 1.000 char accuracy (synthetic only) |
 
-## Test results (actually executed)
+## Test results (actually executed, this session)
 
-- Python: **42 tests — 39 passed, 0 failed, 3 skipped** (PyTorch not
-  installed in the training-less environment; skips are labeled, never
-  counted as passes).
+- Python: **42 tests — 42 passed, 0 failed, 0 skipped** (PyTorch is now
+  installed, so previously skipped tests now run).
 - Node (deployed app logic): **25 passed, 0 failed, 0 skipped**.
 
 ## Known limitations (disclosed, not hidden)
 
-1. **The language model cannot generate English.** The corrected smoke
-   model is 13,464 parameters on a ~2.5 KB original corpus. Its samples
-   are character-statistics, not sentences. Every app answer is therefore
-   deterministic rules + retrieval — labeled as such, never presented as
-   model generation. Training a model that can actually write requires
-   hardware this environment does not have; the exact commands are in
-   the README (`python -m study.train --stage english ...`).
-2. **Browser OCR uses pretrained Tesseract.js.** The UI now discloses
-   this. The compliant from-scratch OCR (`study/ocr.py`) is code-complete
-   and shape-tested but untrained (needs PyTorch + a GPU or a long CPU
-   run on synthetic data).
-3. **Chapter-specific book answers are not supported.** When a question
-   needs the contents of specific chapters, the system does not invent
-   them; it asks the student to upload the pages. Publisher descriptions
-   are labeled as identity evidence only.
-4. **Semantic fact-checking is lexical.** The grounding validator checks
-   quotes exactly and keyword support; it cannot prove a claim is true,
-   only flag unsupported wording.
-5. The earlier defective run is archived, not deleted
+1. **The language model cannot generate English.** 357k parameters on a
+   few KB of original text cannot learn a language. Every app answer is
+   deterministic rules + retrieval, labeled as such.
+2. **The from-scratch OCR works on synthetic images only.** Real-photo
+   OCR accuracy is unknown and must not be claimed. The browser path
+   uses pretrained Tesseract.js, now disclosed in the UI.
+3. **Chapter-specific book answers are not supported** — the system asks
+   the student to provide pages rather than inventing content.
+4. **Semantic fact-checking is lexical** — it flags unsupported wording;
+   it cannot prove truth.
+5. The defective first run is archived with a correction notice
    (`runs/archive/numpy_smoke_v1/CORRECTION.md`).
 
-## Not done yet (next milestones, in order)
+## Remaining milestones
 
-- Real English training at scale (blocked on hardware).
-- From-scratch OCR training + layout analysis (image quality gating,
-  skew correction, structured document output).
-- Chapter-aware source retrieval with evidence tracking.
-- The full visual redesign (deliberately deferred: the specification's
-  own build order gates it behind working intelligence).
+- Scale training: real corpora (MB-scale), GPU hardware, curriculum
+  over english → knowledge → supervised (the CLI and checkpoint format
+  are ready: `python -m study.train --stage ...`).
+- Real-photo OCR training (real photo/scan dataset, layout handling).
+- Then the visual redesign, deliberately deferred behind working
+  intelligence per the specification's own build order.
