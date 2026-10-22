@@ -259,8 +259,10 @@ class NumPyModelTests(unittest.TestCase):
         model, ids, targets = self._model_and_batch()
         report = model.gradcheck(ids, targets, samples_per_tensor=3, randomize_gamma=True)
         worst = max(v for k, v in report.items() if not k.startswith("_"))
-        self.assertLess(worst, 1e-3, f"gradcheck failed: {report}")
-        self.assertIn("_n_subfloor_entries", report)  # sub-floor entries counted, not skipped
+        self.assertLess(worst, 1.0, f"gradcheck failed (ratio > 1): {report}")
+        self.assertIn("_n_entries", report)  # sampled entries counted
+        self.assertIn("_atol", report)
+        self.assertIn("_rtol", report)
 
     def test_next_token_alignment(self):
         """A model trained on 'ababab' must predict the alternation from
@@ -462,6 +464,64 @@ class PyTorchModelTests(unittest.TestCase):
         mask[:, 2:] = 1
         loss = masked_ce_loss(logits, targets, mask)
         self.assertEqual(loss.shape, torch.Size([]))
+
+
+@unittest.skipUnless(HAS_TORCH, "PyTorch is not installed in this environment")
+class TrainerCliTests(unittest.TestCase):
+    """CLI regression test for the trainer: a fresh run saves a resumable
+    checkpoint; --resume restores optimizer/RNG/step state and continues
+    the step counter; --resume on a non-resumable artifact fails with an
+    honest message."""
+
+    RUN = "_test_cli"
+
+    @classmethod
+    def setUpClass(cls):
+        import subprocess
+        cls.subprocess = subprocess
+        cls.base = [sys.executable, "-m", "study.train", "--stage", "english",
+                    "--steps", "2", "--context", "32", "--width", "24",
+                    "--layers", "1", "--heads", "2", "--batch", "2",
+                    "--run-name", cls.RUN]
+        r = cls.subprocess.run(cls.base, capture_output=True, text=True, cwd=str(ROOT))
+        cls.fresh_output = r.stdout + r.stderr
+        cls.fresh_rc = r.returncode
+
+    def test_fresh_run_saves_resumable_checkpoint(self):
+        import torch
+        self.assertEqual(self.fresh_rc, 0, self.fresh_output)
+        ckpt = torch.load(ROOT / "runs" / self.RUN / "checkpoint.pt",
+                          map_location="cpu", weights_only=False)
+        self.assertEqual(ckpt["step"], 2)
+        self.assertEqual(ckpt["artifact_type"], "fresh_run")
+        self.assertIn("optimizer", ckpt)  # resumable: optimizer state saved
+        self.assertIn("rng", ckpt)
+
+    def test_resume_continues_step_counter(self):
+        import subprocess, torch
+        r = subprocess.run(self.base + ["--resume", f"runs/{self.RUN}/checkpoint.pt"],
+                           capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("optimizer + RNG state restored", r.stdout)
+        ckpt = torch.load(ROOT / "runs" / self.RUN / "checkpoint.pt",
+                          map_location="cpu", weights_only=False)
+        self.assertEqual(ckpt["step"], 4)  # 2 + 2: step counter continued
+        self.assertEqual(ckpt["artifact_type"], "resumable_checkpoint")
+
+    def test_resume_rejects_weight_init_artifact(self):
+        import subprocess
+        b = list(self.base)
+        b[b.index("english")] = "knowledge"
+        r = subprocess.run(
+            b + ["--resume", "runs/knowledge_v1/checkpoint.pt"],
+            capture_output=True, text=True, cwd=str(ROOT))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("weight-initialization artifact", r.stdout + r.stderr)
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(ROOT / "runs" / cls.RUN, ignore_errors=True)
 
 
 @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed in this environment")

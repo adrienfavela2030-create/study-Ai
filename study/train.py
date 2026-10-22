@@ -87,6 +87,8 @@ import torch.nn as nn  # noqa: E402
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", choices=["english", "knowledge", "supervised"], required=True)
+    ap.add_argument("--run-name", type=str, default=None,
+                    help="run directory name under runs/ (default: {stage}_v1)")
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--context", type=int, default=256)
     ap.add_argument("--width", type=int, default=128)
@@ -96,7 +98,9 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--init-from", type=str, default=None,
-                    help="resume from a saved checkpoint (continues training)")
+                    help="use a checkpoint's WEIGHTS as initialization (cross-stage; fresh optimizer)")
+    ap.add_argument("--resume", type=str, default=None,
+                    help="true resume: restore optimizer/RNG/step state saved by --resume runs")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
@@ -106,15 +110,16 @@ def main():
     train_lines, val_lines, test_lines = load_stage_data(args.stage)
     print(f"data: train={len(train_lines)} val={len(val_lines)} test={len(test_lines)}")
 
-    if args.init_from:
+    if args.init_from or args.resume:
         # Reuse the checkpoint's EXACT vocabulary: rebuilding the tokenizer
         # from the new stage's corpus could silently remap token meanings
         # (same length, different order). The saved vocab is authoritative.
-        ckpt_early = torch.load(args.init_from, map_location="cpu", weights_only=True)
+        src = args.resume or args.init_from
+        ckpt_early = torch.load(src, map_location="cpu", weights_only=True)
         saved_vocab = ckpt_early.get("vocab")
         if saved_vocab is None:
             raise SystemExit(
-                f"{args.init_from} carries no tokenizer vocab — cannot guarantee "
+                f"{src} carries no tokenizer vocab — cannot guarantee "
                 "token identity across stages; refusing to continue silently"
             )
         tok = CharTokenizer(saved_vocab)
@@ -123,6 +128,22 @@ def main():
         tok = build_tokenizer(args.stage)
         print(f"tokenizer trained on stage corpus (vocab size {tok.vocab_size()})")
 
+    if args.resume:
+        # True resume: rebuild the model from the checkpoint's SAVED
+        # configuration (not remembered CLI args) and restore training
+        # state. This is a same-stage continuation, not initialization.
+        cfg_d = ckpt_early.get("model_config")
+        if cfg_d is None:
+            raise SystemExit(f"{args.resume} has no model_config — cannot rebuild the model exactly")
+        args.width, args.heads = cfg_d["d_model"], cfg_d["n_heads"]
+        args.layers, args.context = cfg_d["n_layers"], cfg_d["context_length"]
+        if ckpt_early.get("optimizer") is None:
+            raise SystemExit(
+                f"{args.resume} has no optimizer state — it is a weight-initialization "
+                "artifact, not a resumable checkpoint (use --init-from for that)"
+            )
+        print(f"model rebuilt from checkpoint config: {cfg_d}")
+
     model = TransformerLM(
         vocab_size=tok.vocab_size(), d_model=args.width, n_heads=args.heads,
         n_layers=args.layers, context_length=args.context,
@@ -130,7 +151,7 @@ def main():
     n_params = sum(p.numel() for p in model.parameters())
     print(f"parameters (randomly initialized): {n_params}")
 
-    if args.init_from:
+    if args.init_from or args.resume:
         ckpt_vocab_size = ckpt_early["model"]["tok_emb.weight"].shape[0]
         if ckpt_vocab_size != tok.vocab_size():
             raise SystemExit(
@@ -138,9 +159,20 @@ def main():
                 f"match its saved vocab ({tok.vocab_size()}) — corrupt checkpoint"
             )
         model.load_state_dict(ckpt_early["model"])
-        print(f"resumed from {args.init_from} (step {ckpt_early.get('step')})")
+        if args.resume:
+            print(f"resumed (true) from {args.resume} (step {ckpt_early.get('step')})")
+        else:
+            print(f"weights initialized from {args.init_from} (step {ckpt_early.get('step')}) — "
+                  "fresh optimizer; this is initialization, not resume")
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    start_step = 0
+    if args.resume:
+        opt.load_state_dict(ckpt_early["optimizer"])
+        if ckpt_early.get("rng") is not None:
+            torch.set_rng_state(ckpt_early["rng"])
+        start_step = int(ckpt_early.get("step", 0))
+        print(f"optimizer + RNG state restored; continuing from step {start_step}")
 
     def batch_from(lines, supervised=False):
         idx = torch.randint(0, len(lines), (args.batch,))
@@ -207,15 +239,18 @@ def main():
     test_after = evaluate(test_lines)
     print(f"val loss after: {val_after:.4f}  test loss: {test_after:.4f}")
 
-    run_dir = RUNS / f"{args.stage}_v1"
+    run_dir = RUNS / (args.run_name or f"{args.stage}_v1")
     run_dir.mkdir(parents=True, exist_ok=True)
     ckpt_path = run_dir / "checkpoint.pt"
     torch.save(
-        {"model": model.state_dict(), "step": args.steps, "stage": args.stage,
+        {"model": model.state_dict(), "step": start_step + args.steps,
+         "stage": args.stage,
          "created": datetime.now(timezone.utc).isoformat(), "vocab": tok.itos,
          "model_config": {"d_model": args.width, "n_heads": args.heads,
                           "n_layers": args.layers, "context_length": args.context},
-         "optimizer": opt.state_dict(), "rng": torch.get_rng_state()},
+         "optimizer": opt.state_dict(), "rng": torch.get_rng_state(),
+         "artifact_type": ("resumable_checkpoint" if args.resume else
+                            "weight_initialization" if args.init_from else "fresh_run")},
         ckpt_path,
     )
     with open(run_dir / "log.json", "w") as f:
@@ -240,10 +275,14 @@ def main():
     manifest = {}
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text())
-    manifest[f"{args.stage}_v1"] = {
+    manifest_key = args.run_name or f"{args.stage}_v1"
+    manifest[manifest_key] = {
         "status": "completed",
+        "kind": "experiment",
         "when": datetime.now(timezone.utc).isoformat(),
-        "checkpoint": f"runs/{args.stage}_v1/checkpoint.pt",
+        "checkpoint": f"runs/{manifest_key}/checkpoint.pt",
+        "artifact_type": ("resumable_checkpoint" if args.resume else
+                            "weight_initialization" if args.init_from else "fresh_run"),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2))
     print("manifest updated")

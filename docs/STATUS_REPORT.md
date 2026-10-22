@@ -7,10 +7,10 @@ real PyTorch training runs.
 
 | Stage | Params | Val loss before → after | Status |
 |---|---|---|---|
-| numpy_smoke_v2 (NumPy, corrected) | 13,464 | 5.99 → 3.15 | verified: alignment, gradcheck (1.9e-7), deterministic reload, resume |
-| english_v1 | 357,312 | 4.44 → 1.34 | real improvement on held-out text |
-| knowledge_v1 (resumed from english) | 357,312 | 1.28 → 1.34 | **val regressed** — overfit the 36-line knowledge corpus |
-| supervised_v1 (resumed from knowledge) | 357,312 | 3.48 → 4.11 (eval) / 4.4 → 0.26 (masked response loss) | **val regressed** — overfit 11 SFT examples |
+| numpy_smoke_v2 (NumPy, corrected) | 13,992 | 6.54 → 3.19 | verified: alignment, gradcheck (worst ratio 0.265 ≤ 1), full-logit reload, resume with independently sampled batches (max param diff 0.0) |
+| english_v1 | 357,312 | 4.44 → 1.34 | real improvement on held-out text; artifact labeled weight_initialization (no optimizer state was saved at run time) |
+| knowledge_v1 (init from english) | 357,312 | 1.28 → 1.34 | **val regressed** — overfit the 36-line knowledge corpus |
+| supervised_v1 (init from knowledge) | 357,312 | 3.48 → 4.11 (eval) / 4.4 → 0.26 (masked response loss) | **val regressed** — overfit 11 SFT examples |
 | ocr_v1 (from-scratch CNN+BiLSTM+CTC) | — | char accuracy **1.000** on 50 held-out synthetic images | real, synthetic data only |
 
 Generated samples from supervised_v1 (recorded verbatim, unedited):
@@ -37,16 +37,18 @@ the UI claims otherwise.
 | Help Me Understand withholds final answers | tested in both languages |
 | OCR cleanup non-destructive; removals reported to the student | Node tests on deployed `docs/app.js` |
 | Evidence excludes questions/choices/instructions | Node test |
+| Evidence is presented as UNVERIFIED excerpts, never as "Draft answers"; the app teaches checking it against the question | Node tests execute buildAnswer on an Aesop fragment and a chapter question |
 | Book corrections keep requested title; numeric picks work | Node tests |
 | Question selection preserves numbers 2, 7, 10 | Python test |
 | Quotes must match sources; snippets can't be cited | Python tests |
+| Trainer CLI: --resume restores optimizer/RNG/step; non-resumable artifacts are rejected honestly | Python CLI regression test |
 | From-scratch OCR trains and decodes synthetic text | `runs/ocr_v1/` checkpoint + 1.000 char accuracy (synthetic only) |
 
 ## Test results (actually executed, this session)
 
-- Python: **46 tests — 46 passed, 0 failed, 0 skipped** (PyTorch is now
+- Python: **49 tests — 49 passed, 0 failed, 0 skipped** (PyTorch is now
   installed, so previously skipped tests now run).
-- Node (deployed app logic): **30 passed, 0 failed, 0 skipped**.
+- Node (deployed app logic): **34 passed, 0 failed, 0 skipped**.
 
 ## Known limitations (disclosed, not hidden)
 

@@ -6,7 +6,7 @@
   "numpy_smoke_v2": {
     "status": "completed",
     "kind": "experiment",
-    "when": "2026-10-22T03:55:35.228564+00:00",
+    "when": "2026-10-22T04:02:14.650596+00:00",
     "checkpoint": "runs/numpy_smoke_v2/checkpoint.json",
     "note": "Corrected experiment: verified alignment, non-unit-gamma gradcheck, full-logit reload determinism, reproducible resume. Real training, real checkpoint. NOT fluent English \u2014 see eval_report.json."
   },
@@ -54,5 +54,19 @@
     "checkpoint": "runs/ocr_v1/checkpoint.pt",
     "note": "Sandbox experiment. From-scratch OCR, 1.000 char accuracy on held-out SYNTHETIC images only; not tested on photos.",
     "report": "runs/ocr_v1/eval_report.json"
+  },
+  "_test_fresh": {
+    "status": "completed",
+    "kind": "experiment",
+    "when": "2026-10-22T04:02:39.674243+00:00",
+    "checkpoint": "runs/_test_fresh/checkpoint.pt",
+    "artifact_type": "resumable_checkpoint"
+  },
+  "_test_cli": {
+    "status": "completed",
+    "kind": "experiment",
+    "when": "2026-10-22T04:04:06.812120+00:00",
+    "checkpoint": "runs/_test_cli/checkpoint.pt",
+    "artifact_type": "resumable_checkpoint"
   }
 }

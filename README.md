@@ -47,8 +47,8 @@ pip install -r requirements.txt
 
 python -m study.inspect_hardware         # hardware + honest feasibility notes
 python -m study.numpy_smoke              # the verified from-scratch experiment
-python -m unittest discover -s tests -v  # 46 tests (0 skipped with torch installed)
-node tests/test_app.js                  # 30 tests for the deployed browser app
+python -m unittest discover -s tests -v  # 49 tests (0 skipped with torch installed)
+node tests/test_app.js                  # 34 tests for the deployed browser app
 python -m uvicorn study.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -104,11 +104,11 @@ study/
   inspect_hardware.py
   data/             original training data + provenance/license records
 web/                three-tool website (mobile-friendly)
-tests/              46 Python tests + 30 Node tests for the deployed app
+tests/              49 Python tests + 34 Node tests for the deployed app
 runs/               REAL checkpoints only — never fabricated
 runs/archive/       defective v1 smoke run + correction notice (kept, unused)
 docs/               the deployed browser app (index.html + app.js)
-tests/              46 Python tests + 30 Node tests for the deployed app
+tests/              49 Python tests + 34 Node tests for the deployed app
 ```
 
 ## Capabilities and limitations (real)

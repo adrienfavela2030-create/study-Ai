@@ -30,7 +30,7 @@ const context = { memory: state.memory, hwStyle: state.hwStyle };
 const names = [
   "cleanOcrText", "isGibberish", "detectSubject", "classifyTask", "solveMath",
   "passageEvidence", "essayPlan", "stripAuthorPrefix", "isAuthorOnly", "resolveQuery",
-  "rememberResult", "mathExplain",
+  "rememberResult", "mathExplain", "buildAnswer", "subjectTips",
 ];
 // resolveQuery references extractBookHints/isCorrection/cleanQuery too
 function grabAll(extra) {
@@ -47,13 +47,16 @@ function check(name, cond, detail) {
   else { failed++; console.log("FAIL " + name + (detail ? " — " + detail : "")); }
 }
 
-// --- OCR cleanup: must NOT destroy math or question identifiers ---
-const aesop = "Aesop's Fables k of text was mostly about =<) 2 he #1 The Swollen Fox #2 The Flies and the Honey-Pot";
+// --- OCR/manual text cleanup: NON-DESTRUCTIVE. Uncertain text is
+// KEPT and FLAGGED for the student — only box-drawing junk is removed.
+const aesop = "Aesop's Fables xlwq of text was mostly about #1 The Swollen Fox #2 The Flies and the Honey-Pot";
 const cleaned = app.cleanOcrText(aesop);
 check("cleanOcrText keeps '#1' question identifiers", cleaned.text.includes("#1") && cleaned.text.includes("#2"));
 check("cleanOcrText keeps 'The Swollen Fox'", cleaned.text.includes("The Swollen Fox"));
-check("cleanOcrText removes symbol junk '=<)'", !cleaned.text.includes("=<)"));
-check("cleanOcrText reports what it removed", Array.isArray(cleaned.removed) && cleaned.removed.length > 0);
+check("cleanOcrText KEEPS the uncertain vowel-less run 'xlwq' (flagged, not deleted)", cleaned.text.includes("xlwq"));
+check("cleanOcrText FLAGS 'xlwq' as a suspect for review", Array.isArray(cleaned.suspects) && cleaned.suspects.includes("xlwq"));
+const boxed = app.cleanOcrText("\u2500\u2500\u2500 question text \u2550\u2550");
+check("cleanOcrText removes box-drawing junk", !/[\u2500-\u257F]/.test(boxed.text) && boxed.text.includes("question text"));
 const math = app.cleanOcrText("2. Solve 12 + 4 = ? 3. Find x - 7");
 check("cleanOcrText keeps '+' and '=' and '-'", /\+/.test(math.text) && /=/.test(math.text) && /-/.test(math.text));
 check("cleanOcrText is not flagged gibberish for clean text", !app.isGibberish(app.cleanOcrText("1. What is the main idea of the passage about plants?").text));
@@ -126,6 +129,23 @@ const choicesOnly = app.passageEvidence(
   "1. What is the main idea?",
   "1. What is the main idea?\nA) The fox giving up\nB) The fox reaching the grapes");
 check("answer-choice-only input yields no evidence", choicesOnly === null);
+// EXECUTE the answer builder: an Aesop fragment + keyword question must
+// produce an UNVERIFIED excerpt with guidance, never a 'Draft answer'
+const fragment = "The Swollen Fox could not reach the grapes and walked away.";
+const builtFromFragment = app.buildAnswer(
+  { n: 1, text: "1. What was the text mostly about? The fox and the grapes." },
+  "main-idea", "english", "normal", fragment, "grade7");
+check("Aesop fragment is presented as unverified, not answered",
+  builtFromFragment.indexOf("Draft answer") === -1 &&
+  builtFromFragment.indexOf("not yet verified") !== -1);
+check("fragment output teaches verification, not just restatement",
+  builtFromFragment.indexOf("does it actually answer") !== -1);
+// chapter question with only a publisher description: no invented answer
+const chapterQ = app.buildAnswer(
+  { n: 2, text: "In chapter 3, why does Chase act differently at lunch?" },
+  "explain", "english", "normal", "", "grade7");
+check("chapter question without chapter text yields no invented answer",
+  chapterQ.indexOf("won't guess") !== -1 || chapterQ.indexOf("Add the passage") !== -1);
 // OCR cleanup preserves math symbols and digit tokens (regression)
 const alg = app.cleanOcrText("Simplify 3x4 and x+z if x = 2 < 3");
 check("cleanOcrText keeps '3x4', 'x+z', '<'",

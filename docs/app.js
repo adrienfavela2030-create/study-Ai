@@ -41,38 +41,34 @@
     $("hw-s3").style.display = n===3 ? "block" : "none";
     $("hw-s4").style.display = n===4 ? "block" : "none";
   }
-  /* ---- OCR text cleanup: REMOVE ONLY CLEAR JUNK, never operators or
-     question numbers. Removed tokens are reported so the student can
-     check them. A previous version deleted '+', '#1' and '-' tokens and
-     silently corrupted math questions. ---- */
+  /* ---- OCR/manual text cleanup: REMOVE ONLY UNAMBIGUOUS structural
+     junk (box-drawing/table borders). Everything uncertain is KEPT and
+     FLAGGED for the student to review — deletion heuristics (vowel
+     rules, symbol-run thresholds) deleted legitimate content like
+     'LCD', 'GCD', '...', '+' and '#1' in earlier versions, so they are
+     gone: uncertain text is preserved and reported, never silently
+     dropped. ---- */
   function cleanOcrText(raw){
-    if(!raw) return { text: "", junkRatio: 0, removed: [] };
-    var lines = raw.replace(/\r/g,"\n").split("\n"), out = [], junkFound = 0, totalTokens = 0, removed = [];
-    var KEEP_SYMBOLS = /^[+\-*/=<>\u00d7\u00f7.,:;?!()\u201c\u201d\u2019'\"#%]+$/;
+    if(!raw) return { text: "", junkRatio: 0, removed: [], suspects: [] };
+    var lines = raw.replace(/\r/g,"\n").split("\n"), out = [], removed = 0, suspects = [];
     for(var i=0;i<lines.length;i++){
       var line = lines[i];
-      // strip box-drawing / table border runs only
+      // remove box-drawing / table border runs (unambiguous structural junk)
+      var before = line;
       line = line.replace(/[\u2500-\u257F\u2550-\u256C]+/g," ");
-      var tokens = line.split(/\s+/), kept = [];
+      if(before !== line) removed++;
+      // flag (do NOT remove) likely misreads: vowel-less alphabetic runs
+      // that are not known acronyms, and long symbol runs
+      var tokens = line.split(/\s+/);
       for(var j=0;j<tokens.length;j++){
         var w = tokens[j]; if(!w) continue;
-        totalTokens++;
-        var hasLetter = /[A-Za-z]/.test(w);
-        var hasDigit = /[0-9]/.test(w);
-        // pure-symbol junk: tokens with no letters/digits are kept only
-        // when short (single operators, <=, ->, punctuation) — longer
-        // symbol runs ("=<)", "|]", box fragments) are misreads
-        if(!hasLetter && !hasDigit && (!KEEP_SYMBOLS.test(w) || w.length > 2)){ junkFound++; removed.push(w); continue; }
-        // vowel-less ALPHABETIC runs (e.g. "xlwq") are almost certainly
-        // misreads — but tokens containing digits (3x4, x2) or symbols are
-        // legitimate math and are always kept
-        if(/^[A-Za-z]{3,}$/.test(w) && !/[aeiouyAEIOUY]/.test(w)){ junkFound++; removed.push(w); continue; }
-        kept.push(w);
+        if(/^[A-Za-z]{4,}$/.test(w) && !/[aeiouyAEIOUY]/.test(w) && !/^(LCD|GCD|HCl|XML|HTML|SQL|NASA|DNA|RNN|LSTM|CNN|OCR|AI)$/.test(w)) suspects.push(w);
+        if(/^[^A-Za-z0-9]{4,}$/.test(w) && !/^\.\.\.$/.test(w)) suspects.push(w);
       }
-      var joined = kept.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
+      var joined = line.replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
       if(joined) out.push(joined);
     }
-    return { text: out.join("\n"), junkRatio: totalTokens ? junkFound/totalTokens : 1, removed: removed.slice(0,12) };
+    return { text: out.join("\n"), junkRatio: out.length ? removed/Math.max(1,out.length) : 1, removed: [], suspects: suspects.slice(0,12) };
   }
   function isGibberish(text){
     if(!text || text.length < 8) return true;
@@ -147,6 +143,9 @@
     if(!t){ $("hw-ocr").textContent = "Add a photo or type the worksheet text first."; return; }
     var cleaned = cleanOcrText(t); t = cleaned.text;
     if(!t || isGibberish(t)){ $("hw-ocr").textContent = "That text looks unreadable. Fix it or type the real questions."; return; }
+    if(cleaned.suspects && cleaned.suspects.length){
+      $("hw-ocr").textContent = "Some words look off \u2014 please double-check these: " + cleaned.suspects.join(" ");
+    } else if($("hw-ocr").textContent.indexOf("look off") !== -1){ $("hw-ocr").textContent = ""; }
     $("hw-text").value = t;
     hwQuestions = parseQuestions(t);
     var box = $("hw-qlist"); box.innerHTML = "";
@@ -287,18 +286,17 @@
       return lines.join("\n");
     }
     if(evidence){
-      lines.push("Evidence from your worksheet: \u201c" + evidence.sentence.slice(0,200) + "\u201d");
-      if(mode !== "explain"){
-        lines.push("");
-        lines.push("Draft answer: " + evidence.sentence.replace(/^[A-Z]/, function(c){ return c.toLowerCase(); }).slice(0, 150).replace(/[.!?]$/,"") + ".");
-        lines.push("(Built from the passage above \u2014 rewrite it in your own words so it sounds like you.)");
-      } else {
-        lines.push("");
-        lines.push("How to answer this yourself:");
-        lines.push("1. Find that sentence in the passage");
-        lines.push("2. Say what it shows in your own words");
-        lines.push("3. Add one more detail from the passage");
-      }
+      // Keyword overlap PROPOSES a sentence — it does not answer the
+      // question. Present the excerpt as UNVERIFIED, relevant material
+      // and teach the student to check it against the question. The
+      // question is NOT marked answered here.
+      lines.push("Relevant excerpt from your worksheet (not yet verified as an answer):");
+      lines.push("\u201c" + evidence.sentence.slice(0,200) + "\u201d");
+      lines.push("");
+      lines.push("How to answer this yourself:");
+      lines.push("1. Find that sentence in the passage");
+      lines.push("2. Check: does it actually answer what the question asks?");
+      lines.push("3. If yes, say it in your own words and add one more detail from the passage");
       return lines.join("\n");
     }
     var tips = subjectTips(subject);

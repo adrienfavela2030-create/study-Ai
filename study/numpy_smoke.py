@@ -131,9 +131,10 @@ def main(steps: int = 120, seed: int = 0):
     gx, gy = sample_batch(data.train, tok, np.random.default_rng(3), T=16, batch=2)
     report = model.gradcheck(gx, gy)
     worst = max(v for k, v in report.items() if not k.startswith("_"))
-    print(f"gradcheck worst error: {worst:.3e} across {len(report) - 1} parameter tensors "
-          f"(sampled check, randomized gamma, {report.get('_n_subfloor_entries', 0)} sub-floor entries measured absolutely)")
-    if worst > 1e-3:
+    print(f"gradcheck worst violation ratio: {worst:.3f} (pass <= 1.0) across "
+          f"{len(report) - 3} parameter tensors, {report.get('_n_entries', 0)} sampled entries, "
+          f"randomized gamma, combined abs+rel criterion atol={report.get('_atol')} rtol={report.get('_rtol')}")
+    if worst > 1.0:
         print("GRADCHECK FAILED")
         sys.exit(1)
 
@@ -185,7 +186,8 @@ def main(steps: int = 120, seed: int = 0):
     sample_after = generate(model, tok, "The student ")
     print(f"loss after training:  val={val_after:.4f} test={test_after:.4f}  ({elapsed:.1f}s)")
 
-    # 6. Save real checkpoint (tokenizer vocab + optimizer state included)
+    # 6. Save real checkpoint (tokenizer vocab + optimizer + sampler RNG
+    #    state included, so training can be resumed reproducibly)
     run_dir = RUNS / "numpy_smoke_v2"
     run_dir.mkdir(parents=True, exist_ok=True)
     save_checkpoint(
@@ -198,6 +200,7 @@ def main(steps: int = 120, seed: int = 0):
             "created": datetime.now(timezone.utc).isoformat(),
             "corpus": "study/data/corpus_english.txt (original text)",
             "tokenizer_vocab": tok.itos,
+            "sampler_rng_state": rng.bit_generator.state,
         },
         optimizer=opt,
     )
@@ -215,32 +218,36 @@ def main(steps: int = 120, seed: int = 0):
 
     # 8. True resume verification: an uninterrupted continuation and a
     #    checkpoint-reload continuation must produce IDENTICAL parameters
-    #    after the same updates on the same batches (train data only).
-    fixed_rng = np.random.default_rng(777)
-    fixed_batches = [sample_batch(data.train, tok, fixed_rng, T=64, batch=16) for _ in range(5)]
+    #    when each branch INDEPENDENTLY draws its next batches from the
+    #    saved sampler RNG state (train data only).
+    import copy as _copy
 
-    def run_continuation(m, o):
-        for bx, by in fixed_batches:
+    def run_continuation(m, o, branch_rng, n_steps=3):
+        for _ in range(n_steps):
+            bx, by = sample_batch(data.train, tok, branch_rng, T=64, batch=16)
             cache: dict = {}
             m.loss_and_logits(bx, by, cache)
             grads = m.backward(cache, by)
             o.step(m.params, grads)
         return m
 
-    # (a) uninterrupted: keep training the in-memory model/optimizer
-    import copy as _copy
+    # (a) uninterrupted: keep training the in-memory model/optimizer,
+    #     drawing batches from the SAME in-memory rng
     model_uninterrupted = _copy.deepcopy(model)
     opt_uninterrupted = Adam(model_uninterrupted.params, lr=opt.lr)
     opt_uninterrupted.m = {k: v.copy() for k, v in opt.m.items()}
     opt_uninterrupted.v = {k: v.copy() for k, v in opt.v.items()}
     opt_uninterrupted.t = opt.t
-    run_continuation(model_uninterrupted, opt_uninterrupted)
+    rng_uninterrupted = _copy.deepcopy(rng)
+    run_continuation(model_uninterrupted, opt_uninterrupted, rng_uninterrupted)
 
-    # (b) reloaded: restore model AND optimizer state from the checkpoint
-    model_reloaded, _, opt_state2 = load_checkpoint(str(run_dir / "checkpoint.json"))
+    # (b) reloaded: restore model AND optimizer AND sampler RNG state
+    model_reloaded, meta2, opt_state2 = load_checkpoint(str(run_dir / "checkpoint.json"))
     opt_reloaded = Adam(model_reloaded.params, lr=opt_state2["lr"])
     opt_reloaded.load_state_dict(opt_state2)
-    run_continuation(model_reloaded, opt_reloaded)
+    rng_reloaded = np.random.default_rng(0)
+    rng_reloaded.bit_generator.state = meta2["sampler_rng_state"]
+    run_continuation(model_reloaded, opt_reloaded, rng_reloaded)
 
     max_param_diff = max(
         float(np.abs(model_uninterrupted.params[k] - model_reloaded.params[k]).max())
@@ -248,15 +255,15 @@ def main(steps: int = 120, seed: int = 0):
     )
     resume_ok = max_param_diff < 1e-12
     print(f"resume-from-checkpoint reproducibility: {resume_ok} "
-          f"(max parameter difference after 5 identical updates: {max_param_diff:.2e})")
+          f"(max parameter difference after independently sampled updates: {max_param_diff:.2e})")
 
     eval_report = {
         "experiment": "numpy_smoke_v2",
         "what_was_trained": "1-block decoder-only Transformer, 24-dim, next-character prediction",
         "parameters": cfg.param_count(),
         "tokenizer_report": tok_report,
-        "gradcheck_worst_error": worst,
-        "gradcheck_conditions": "sampled check (3 entries/tensor), randomized non-unit layernorm gamma, combined abs+rel criterion",
+        "gradcheck_worst_violation_ratio": worst,
+        "gradcheck_conditions": "sampled check (3 entries/tensor), randomized non-unit layernorm gamma, combined abs+rel criterion |num-ana| <= atol + rtol*max(|num|,|ana|), ratio <= 1 passes",
         "next_token_alignment_check": alignment_ok,
         "val_loss_before": val_before,
         "val_loss_after": val_after,
@@ -271,13 +278,13 @@ def main(steps: int = 120, seed: int = 0):
         "honest_assessment": (
             "The from-scratch pipeline is verified end to end: correct next-token "
             "alignment, hand-derived gradients matching finite differences with "
-            "non-unit layernorm scales, deterministic checkpoint reload, and "
-            "resumable training. Held-out loss decreased. HOWEVER: this model is "
-            "tiny (10,968 parameters, ~2.5 KB corpus) and its samples are NOT "
-            "fluent English. It has not learned English in any meaningful sense; "
-            "it has only learned coarse character statistics of a tiny corpus. "
-            "A useful school assistant requires orders of magnitude more data and "
-            "parameters, which this CPU-only environment cannot train."
+            "non-unit layernorm scales, deterministic checkpoint reload (full "
+            "logits), and reproducible resume (model + optimizer + sampler RNG). "
+            "Held-out loss decreased. HOWEVER: this model is tiny "
+            f"({cfg.param_count()} parameters, ~2.5 KB corpus) and its samples "
+            "are NOT fluent English. It has not learned English in any "
+            "meaningful sense; it has only learned coarse character statistics "
+            "of a tiny corpus. Fluency was not achieved in this experiment."
         ),
     }
     with open(run_dir / "eval_report.json", "w") as f:

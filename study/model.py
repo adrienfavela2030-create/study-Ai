@@ -303,13 +303,16 @@ class TinyNumPyTransformer:
         analytic = self.backward(cache, targets)
         rng = np.random.default_rng(1)
         report: dict[str, float] = {}
-        # Combined absolute+relative criterion: a sub-floor entry
-        # (both gradients below atol) is recorded as an absolute error
-        # rather than skipped, so the reported worst value is a true
-        # upper bound over every sampled entry. This is a SAMPLED check
-        # (samples_per_tensor random entries per tensor), not exhaustive.
-        atol = 1e-6
-        n_subfloor = 0
+        # Combined absolute+relative acceptance test per sampled entry:
+        #   |num - ana| <= atol + rtol * max(|num|, |ana|)
+        # Each entry is recorded as the violation RATIO
+        #   |num - ana| / (atol + rtol * max(|num|, |ana|))
+        # so ratio <= 1 means the entry passes; the per-tensor worst ratio
+        # and the overall pass/fail share ONE consistent scale. This is a
+        # SAMPLED check (samples_per_tensor random entries per tensor),
+        # not exhaustive.
+        atol, rtol = 1e-6, 1e-3
+        n_entries = 0
         for name, arr in self.params.items():
             worst = 0.0
             for _ in range(samples_per_tensor):
@@ -324,15 +327,13 @@ class TinyNumPyTransformer:
                 arr[idx] = old
                 num = (lp - lm) / (2 * eps)
                 ana = analytic[name][idx]
-                if abs(num) < atol and abs(ana) < atol:
-                    n_subfloor += 1
-                    err = abs(num - ana)  # absolute error only
-                else:
-                    denom = max(abs(num), abs(ana), atol)
-                    err = abs(num - ana) / denom
-                worst = max(worst, err)
+                n_entries += 1
+                ratio = abs(num - ana) / (atol + rtol * max(abs(num), abs(ana)))
+                worst = max(worst, ratio)
             report[name] = worst
-        report["_n_subfloor_entries"] = n_subfloor  # not an error value
+        report["_n_entries"] = n_entries
+        report["_atol"] = atol
+        report["_rtol"] = rtol
         return report
 
 
