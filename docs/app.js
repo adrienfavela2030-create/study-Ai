@@ -47,41 +47,34 @@ listening=true; $("btn-mic").classList.add("listening");
 try{recog.start();}catch(e){ listening=false; $("btn-mic").classList.remove("listening"); }
 }
 function isGib(t){
-if(!t||t.length<8) return true;
-var letters=(t.match(/[a-zA-Z]/g)||[]).length;
-if(letters/t.length<0.4) return true;
-var words=t.split(/\s+/).filter(Boolean);
-if(words.length<3) return true;
-var weird=0,singles=0;
-for(var i=0;i<words.length;i++){
-var w=words[i];
-if(w.length===1&&!/[aAI]/.test(w)) singles++;
-if(w.length>=3&&!/[aeiouAEIOU]/.test(w)&&/[a-zA-Z]{3,}/.test(w)) weird++;
-}
-return weird/words.length>0.35||singles/words.length>0.3;
+if(!t||t.length<3) return true;
+var letters=(t.match(/[a-zA-Z0-9]/g)||[]).length;
+if(letters<3) return true;
+if(letters/t.length<0.2) return true;
+return false;
 }
 function prepImg(file){
 return new Promise(function(resolve){
 var img=new Image(), url=URL.createObjectURL(file);
 img.onload=function(){
 try{
-var targetW=1800;
 var scale=1;
-if(img.width<900) scale=Math.max(2.2, targetW/img.width);
-else if(img.width<1400) scale=1.5;
-else if(img.width>targetW) scale=targetW/img.width;
+if(img.width<700) scale=2.5;
+else if(img.width<1100) scale=1.8;
+else if(img.width<1600) scale=1.3;
+else if(img.width>2200) scale=1800/img.width;
 var w=Math.round(img.width*scale), hh=Math.round(img.height*scale);
 var c=document.createElement("canvas"); c.width=w; c.height=hh;
 var ctx=c.getContext("2d");
 ctx.imageSmoothingEnabled=true;
+ctx.imageSmoothingQuality="high";
 ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,hh);
 ctx.drawImage(img,0,0,w,hh);
 var id=ctx.getImageData(0,0,w,hh), d=id.data;
 for(var i=0;i<d.length;i+=4){
 var g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-g=(g-128)*1.55+128;
+g=(g-128)*1.25+128;
 if(g<0)g=0; if(g>255)g=255;
-if(g>185)g=255; else if(g<115)g=0;
 d[i]=d[i+1]=d[i+2]=g;
 }
 ctx.putImageData(id,0,0); URL.revokeObjectURL(url);
@@ -92,50 +85,46 @@ img.onerror=function(){ URL.revokeObjectURL(url); resolve(file); };
 img.src=url;
 });
 }
-function scoreOCR(t){
-if(!t) return -1;
-var letters=(t.match(/[a-zA-Z]/g)||[]).length;
-var words=t.split(/\s+/).filter(Boolean);
-if(words.length<2) return letters*0.1;
-var score=letters + words.length*3;
-if(isGib(t)) score*=0.15;
-return score;
-}
 function runOCR(file, cb, stEl){
 if(stEl){ stEl.textContent="Reading…"; stEl.className="status"; }
 if(typeof Tesseract==="undefined"){ if(stEl) stEl.textContent="Photo added. Type the text."; cb(""); return; }
-prepImg(file).then(function(img){
-var modes=[6, 4, 3, 11];
-var best="", bestScore=-1, i=0;
-function next(){
-if(i>=modes.length){
-if(best && best.length>5 && !isGib(best)){
-if(stEl){ stEl.textContent="Text ready."; stEl.className="status ok"; }
-cb(best);
-} else {
-if(stEl){ stEl.textContent="Could not read clearly. Type below."; stEl.className="status warn"; }
-cb(best||"");
-}
-return;
-}
-var psm=modes[i++];
-if(stEl) stEl.textContent="Reading… ("+i+"/"+modes.length+")";
-Tesseract.recognize(img,"eng",{
+function tryOne(img, label){
+return Tesseract.recognize(img, "eng", {
 logger:function(m){
 if(stEl && m && m.status==="recognizing text" && m.progress)
 stEl.textContent="Reading… "+Math.round(m.progress*100)+"%";
-},
-tessedit_pageseg_mode: String(psm)
-}).then(function(r){
-var t=(r&&r.data&&r.data.text)?r.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim():"";
-var sc=scoreOCR(t);
-if(sc>bestScore){ bestScore=sc; best=t; }
-if(bestScore>80 && !isGib(best)){ i=modes.length; }
-next();
-}).catch(function(){ next(); });
 }
-next();
-}).catch(function(){ if(stEl){ stEl.textContent="Could not read photo."; stEl.className="status err"; } cb(""); });
+}).then(function(r){
+return (r&&r.data&&r.data.text)?r.data.text.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim():"";
+}).catch(function(){ return ""; });
+}
+tryOne(file, "raw").then(function(t1){
+if(t1 && t1.length>=5 && !isGib(t1)){
+if(stEl){ stEl.textContent="Text ready."; stEl.className="status ok"; }
+cb(t1);
+return null;
+}
+if(stEl) stEl.textContent="Enhancing photo…";
+return prepImg(file).then(function(img){
+return tryOne(img, "prep").then(function(t2){
+var best=t2;
+if((t1||"").length>(best||"").length) best=t1;
+if(best && best.length>=3){
+if(stEl){
+if(isGib(best)){ stEl.textContent="Got some text — check and fix if needed."; stEl.className="status warn"; }
+else { stEl.textContent="Text ready."; stEl.className="status ok"; }
+}
+cb(best);
+} else {
+if(stEl){ stEl.textContent="Could not read. Try a clearer photo or type it."; stEl.className="status warn"; }
+cb("");
+}
+});
+});
+}).catch(function(){
+if(stEl){ stEl.textContent="Could not read photo."; stEl.className="status err"; }
+cb("");
+});
 }
 function bookSuggestions(title, author){
 var topics=[
