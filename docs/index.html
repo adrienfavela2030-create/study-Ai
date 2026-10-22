@@ -81,7 +81,7 @@ textarea.field{min-height:100px;resize:vertical}
 <body>
 <div id="app">
 <header class="header">
-<h1>Study AI <span style="font-size:10px;color:#8e8e8e;font-weight:500">v18</span></h1>
+<h1>Study AI <span style="font-size:10px;color:#8e8e8e;font-weight:500">v19</span></h1>
 <div class="tabs">
 <button type="button" class="tab on" id="t-research" onclick="show('research')">Research</button>
 <button type="button" class="tab" id="t-hw" onclick="show('hw')">Homework</button>
@@ -115,11 +115,12 @@ textarea.field{min-height:100px;resize:vertical}
 <div class="scroll">
 <div class="steps" id="hw-steps"><div class="step on"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
 <div id="hs1">
-<p class="hint">Photo of the page, or type the questions. If the photo reads wrong, type the titles (e.g. The Ants and the Grasshopper).</p>
+<p class="hint">Photo of the page, or type the questions. Photo hard to read? Tap the Aesop button.</p>
 <div class="up2">
 <label class="up">Camera<small>Take photo</small><input type="file" id="hw-cam" accept="image/*" capture="environment" onchange="hwPhoto(this)"/></label>
 <label class="up">Upload<small>Photos / files</small><input type="file" id="hw-file" accept="image/*,.pdf,.txt" onchange="hwPhoto(this)"/></label>
 </div>
+<button type="button" class="btn2" onclick="fillAesop()" style="margin-bottom:12px">Use Aesop's Fables list (7 stories)</button>
 <img id="hw-img" class="preview" alt=""/>
 <p class="status" id="hw-st"></p>
 <p class="lbl">Text</p>
@@ -182,6 +183,6 @@ textarea.field{min-height:100px;resize:vertical}
 </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/adrienfavela2030-create/study-Ai@3f654368caf6d893d7f33448e06a93f0466cf767/docs/app.js"></script>
+<script src="app-v19.js"></script>
 </body>
 </html>
