@@ -1,0 +1,34 @@
+{
+  "corpus": "study/data/corpus_english_v2.txt",
+  "sources": [
+    {
+      "file": "study/data/gutenberg_raw/g14640.txt",
+      "title": "McGuffey's Revised First Reader",
+      "url": "https://www.gutenberg.org/files/14640/14640-0.txt",
+      "license": "public domain (United States)",
+      "sha256": "4cb5bd235989be8fdaf4d49a83c3106c8a536ab0d93e73c0a22d4f73686b4825",
+      "paragraphs_after_cleaning": 313
+    },
+    {
+      "file": "study/data/gutenberg_raw/g14766.txt",
+      "title": "McGuffey's Third Eclectic Reader",
+      "url": "https://www.gutenberg.org/files/14766/14766-0.txt",
+      "license": "public domain (United States)",
+      "sha256": "7d0d7a112fa6b25694f4169a83f3887c7f04054341f55d69104cfbc5c831aff3",
+      "paragraphs_after_cleaning": 410
+    },
+    {
+      "file": "study/data/gutenberg_raw/g21.txt",
+      "title": "Aesop's Fables (translated, G. F. Townsend)",
+      "url": "https://www.gutenberg.org/files/21/21-0.txt",
+      "license": "public domain (United States)",
+      "sha256": "0c396c900a3ccae19e11bbc78ccbd788edaec05f167ead71f0ebc739928ac49d",
+      "paragraphs_after_cleaning": 456
+    }
+  ],
+  "held_out_eval": "study/data/eval_english_v2.json (last 15 paragraphs, never trained on)",
+  "train_paragraphs": 1164,
+  "train_characters": 393607,
+  "train_tokens_chars": 393607,
+  "license": "all sources public domain (US); see per-source records"
+}

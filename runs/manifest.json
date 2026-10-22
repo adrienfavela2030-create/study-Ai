@@ -42,10 +42,10 @@
   "supervised_v1": {
     "status": "completed",
     "kind": "experiment",
-    "when": "2026-10-22T03:54:19.712585+00:00",
+    "when": "2026-10-22T04:52:31.071529+00:00",
     "checkpoint": "runs/supervised_v1/checkpoint.pt",
-    "note": "Sandbox experiment. Real run; masked response loss 4.4 -> 0.26 but samples are not English (see STATUS_REPORT).",
-    "report": "runs/supervised_v1/eval_report.json"
+    "artifact_type": "weight_initialization",
+    "note": "Contamination SUSPECTED in review (sampler indexed the full SFT list), INVESTIGATED and DISPROVEN: the sampler drew indices from range(len(train_lines))=9, and with the positional 80/10/10 split those indices can only select train-split examples (verified mathematically and by a bit-identical rerun with the corrected explicit sampler). Measurements stand. LIMITATION: the val/test splits contain a single example each, so the held-out SFT evaluation is statistically nearly empty; the earlier 'overfit' reading is not established either way. See runs/supervised_v1/INVESTIGATION.md."
   },
   "ocr_v1": {
     "status": "completed",
@@ -65,8 +65,23 @@
   "_test_cli": {
     "status": "completed",
     "kind": "experiment",
-    "when": "2026-10-22T04:04:06.812120+00:00",
+    "when": "2026-10-22T04:58:33.503915+00:00",
     "checkpoint": "runs/_test_cli/checkpoint.pt",
     "artifact_type": "resumable_checkpoint"
+  },
+  "supervised_v2": {
+    "status": "verification_rerun",
+    "kind": "experiment",
+    "when": "2026-10-22T04:52:31.071541+00:00",
+    "checkpoint": "runs/supervised_v2/checkpoint.pt",
+    "note": "Rerun with the corrected explicit train-split sampler to verify the contamination suspicion: bit-identical losses to the original run, confirming no contamination occurred. Same run as supervised_v1; the explicit sampler is now the code path."
+  },
+  "english_v2": {
+    "status": "completed",
+    "kind": "experiment",
+    "when": "2026-10-22T04:57:16.806092+00:00",
+    "checkpoint": "runs/english_v2/checkpoint.pt",
+    "artifact_type": "resumable_checkpoint",
+    "note": "Measured increment on public-domain corpus (394 KB, McGuffey readers + Aesop, provenance in study/data/provenance_v2.json). Fixed held-out eval: char loss 2.99 (english_v1) -> 1.94 (english_v2 @4500 steps, true resumes). NOT fluent \u2014 samples remain word-salad. See runs/english_v2/COMPARISON.md for the trajectory and the specific remaining training steps."
   }
 }

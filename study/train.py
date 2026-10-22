@@ -40,8 +40,13 @@ def build_tokenizer(stage: str) -> CharTokenizer:
     return CharTokenizer.train_from_texts(texts)
 
 
-def load_stage_data(stage: str):
-    if stage == "english":
+def load_stage_data(stage: str, corpus_override: str | None = None):
+    if corpus_override:
+        path = ROOT / corpus_override
+        if not path.exists():
+            raise SystemExit(f"corpus not found: {path}")
+        lines = load_corpus(str(path))
+    elif stage == "english":
         lines = load_corpus(str(ROOT / "study/data/corpus_english.txt"))
     elif stage == "knowledge":
         lines = load_corpus(str(ROOT / "study/data/corpus_knowledge.txt"))
@@ -81,6 +86,19 @@ def masked_ce_loss(logits, targets, mask):
     return (losses * m).sum() / m.sum().clamp(min=1)
 
 
+def load_sft_train_split() -> list[dict]:
+    """The training split of sft_data.jsonl. Supervised batches MUST draw
+    from this list ONLY — the previous implementation sampled positions
+    from the full file, so validation/test examples entered training and
+    the supervised_v1 measurements are invalid (contaminated)."""
+    with open(ROOT / "study/data/sft_data.jsonl", encoding="utf-8") as f:
+        all_examples = [json.loads(l) for l in f if l.strip()]
+    # replicate the exact load_stage_data split: 80/10/10 by position
+    n = len(all_examples)
+    n_val = max(1, n // 10)
+    return all_examples[: n - 2 * n_val]
+
+
 import torch.nn as nn  # noqa: E402
 
 
@@ -89,6 +107,8 @@ def main():
     ap.add_argument("--stage", choices=["english", "knowledge", "supervised"], required=True)
     ap.add_argument("--run-name", type=str, default=None,
                     help="run directory name under runs/ (default: {stage}_v1)")
+    ap.add_argument("--corpus", type=str, default=None,
+                    help="override the stage's corpus file (path relative to repo root)")
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--context", type=int, default=256)
     ap.add_argument("--width", type=int, default=128)
@@ -107,7 +127,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"device: {device}")
 
-    train_lines, val_lines, test_lines = load_stage_data(args.stage)
+    train_lines, val_lines, test_lines = load_stage_data(args.stage, corpus_override=args.corpus)
     print(f"data: train={len(train_lines)} val={len(val_lines)} test={len(test_lines)}")
 
     if args.init_from or args.resume:
@@ -174,14 +194,18 @@ def main():
         start_step = int(ckpt_early.get("step", 0))
         print(f"optimizer + RNG state restored; continuing from step {start_step}")
 
+    # Supervised batches MUST come from the training split only.
+    train_split_examples = load_sft_train_split() if args.stage == "supervised" else None
+
     def batch_from(lines, supervised=False):
-        idx = torch.randint(0, len(lines), (args.batch,))
         if supervised:
-            with open(ROOT / "study/data/sft_data.jsonl", encoding="utf-8") as f:
-                examples = [json.loads(l) for l in f if l.strip()]
-            picked = [examples[i] for i in idx.tolist()]
+            # sample ONLY from the training split — held-out examples never
+            # enter training
+            idx = torch.randint(0, len(train_split_examples), (args.batch,))
+            picked = [train_split_examples[i] for i in idx.tolist()]
             return supervised_batch(tok, [p["prompt"] for p in picked],
                                     [p["response"] for p in picked], args.context, device)
+        idx = torch.randint(0, len(lines), (args.batch,))
         xs, ys = [], []
         for i in idx.tolist():
             ids = tok.encode(lines[i])

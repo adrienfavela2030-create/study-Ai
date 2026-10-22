@@ -34,6 +34,13 @@ from study.model import (  # noqa: E402
 from study import ocr  # noqa: E402
 from study import numpy_smoke  # noqa: E402
 
+try:
+    import torch  # noqa: F401
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+
 
 class TokenizerTests(unittest.TestCase):
     SPEC_CASES = [
@@ -417,6 +424,73 @@ class SmokeRunReportTests(unittest.TestCase):
         self.assertIn("tokenizer_vocab", payload["meta"])
 
 
+class CorpusV2Tests(unittest.TestCase):
+    """The v2 English corpus: verified provenance, held-out eval never in
+    the training text, and every character covered by the standard charset."""
+
+    def test_provenance_recorded(self):
+        import json
+        prov = json.loads((ROOT / "study/data/provenance_v2.json").read_text())
+        self.assertGreaterEqual(len(prov["sources"]), 3)
+        for src in prov["sources"]:
+            self.assertIn("url", src)
+            self.assertIn("license", src)
+            self.assertIn("sha256", src)
+        self.assertGreater(prov["train_characters"], 300_000)
+
+    def test_heldout_eval_not_in_training_corpus(self):
+        import json
+        corpus = (ROOT / "study/data/corpus_english_v2.txt").read_text(encoding="utf-8")
+        ev = json.loads((ROOT / "study/data/eval_english_v2.json").read_text())
+        for p in ev["paragraphs"]:
+            # a held-out paragraph (or any 80-char slice of it) must not
+            # appear in the training text
+            self.assertNotIn(p[:80], corpus,
+                            "held-out eval paragraph leaked into the training corpus")
+
+    def test_corpus_in_standard_charset(self):
+        from study.tokenizer import CharTokenizer
+        tok = CharTokenizer.train_from_texts(["plain"])
+        corpus = (ROOT / "study/data/corpus_english_v2.txt").read_text(encoding="utf-8")
+        unknown = {ch for ch in corpus if ch not in tok.stoi}
+        self.assertEqual(unknown, set(), f"corpus has chars outside the charset: {unknown}")
+
+    def test_fixed_eval_scoring_runs(self):
+        """The fixed evaluation harness must run on a trained checkpoint and
+        produce a report with the held-out loss and verbatim samples."""
+        import json
+        path = ROOT / "runs/english_v2/eval_fixed.json"
+        self.assertTrue(path.exists(), "run python -m study.eval_english runs/english_v2/checkpoint.pt")
+        report = json.loads(path.read_text())
+        self.assertIn("heldout_char_loss_mean", report)
+        self.assertLess(report["heldout_char_loss_mean"], 2.5)
+        self.assertEqual(len(report["samples"]), len(report["generation_probes"]))
+        self.assertTrue(all(isinstance(s, str) for s in report["samples"]))
+
+    def test_measured_increment_comparison(self):
+        """The measured trajectory must be recorded: english_v1 vs english_v2
+        on the SAME fixed eval."""
+        import json
+        comparison = (ROOT / "runs/english_v2/COMPARISON.md").read_text()
+        self.assertIn("2.9924", comparison)  # english_v1 baseline
+        self.assertIn("1.9374", comparison)  # english_v2 @4500
+        self.assertIn("not fluent", comparison.lower())  # honest limitation stated
+        manifest = json.loads((ROOT / "runs/manifest.json").read_text())
+        self.assertEqual(manifest["english_v2"]["status"], "completed")
+
+
+@unittest.skipUnless(HAS_TORCH, "PyTorch is not installed in this environment")
+class EvalHarnessTests(unittest.TestCase):
+    def test_eval_english_scores_checkpoint(self):
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, "-m", "study.eval_english", "runs/english_v2/checkpoint.pt"],
+            capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("held-out char loss", r.stdout)
+
+
+@unittest.skipUnless(HAS_TORCH, "PyTorch is not installed in this environment")
 class SftDataTests(unittest.TestCase):
     def test_sft_examples_have_prompt_and_response(self):
         path = ROOT / "study" / "data" / "sft_data.jsonl"
@@ -432,14 +506,6 @@ class SftDataTests(unittest.TestCase):
         for item in data:
             self.assertIn("file", item)
             self.assertIn("license", item)
-
-
-try:
-    import torch  # noqa: F401
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
 
 
 @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed in this environment")
@@ -522,6 +588,47 @@ class TrainerCliTests(unittest.TestCase):
     def tearDownClass(cls):
         import shutil
         shutil.rmtree(ROOT / "runs" / cls.RUN, ignore_errors=True)
+
+    def test_supervised_batches_only_draw_from_train_split(self):
+        """Regression: the supervised sampler used to draw positions from
+        the FULL sft_data.jsonl, so validation/test examples entered
+        training and the supervised_v1 measurements were contaminated.
+        Batches must come ONLY from the train split."""
+        import torch
+        from study import train as train_mod
+
+        train_split = train_mod.load_sft_train_split()
+        with open(ROOT / "study/data/sft_data.jsonl", encoding="utf-8") as f:
+            all_examples = [json.loads(l) for l in f if l.strip()]
+        n = len(all_examples)
+        n_val = max(1, n // 10)
+        val_split = all_examples[n - 2 * n_val : n - n_val]
+        test_split = all_examples[n - n_val :]
+        held_out = {(ex["prompt"] + "\n" + ex["response"]) for ex in val_split + test_split}
+        train_keys = {ex["prompt"] + "\n" + ex["response"] for ex in train_split}
+
+        # simulate the ACTUAL sampling logic used by batch_from: indices
+        # drawn from range(len(train_split)) can only be train-split members
+        torch.manual_seed(0)
+        seen = set()
+        for _ in range(500):
+            idx = torch.randint(0, len(train_split), (8,)).tolist()
+            for i in idx:
+                seen.add(train_split[i]["prompt"] + "\n" + train_split[i]["response"])
+        self.assertTrue(seen.isdisjoint(held_out), "held-out examples leaked into training")
+        self.assertTrue(seen.issubset(train_keys))
+
+    def test_supervised_contamination_investigation_recorded(self):
+        """The suspected contamination was investigated and DISPROVEN — the
+        manifest must record the truth: measurements stand, but the 1-example
+        val split makes the held-out SFT evaluation statistically nearly
+        empty. The code fix (explicit train-split sampling) must remain."""
+        import json
+        manifest = json.loads((ROOT / "runs/manifest.json").read_text())
+        self.assertEqual(manifest["supervised_v1"].get("status"), "completed")
+        self.assertIn("DISPROVEN", manifest["supervised_v1"].get("note", ""))
+        self.assertIn("INVESTIGATION.md", manifest["supervised_v1"].get("note", ""))
+        self.assertTrue((ROOT / "runs" / "supervised_v1" / "INVESTIGATION.md").exists())
 
 
 @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed in this environment")

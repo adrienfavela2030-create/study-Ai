@@ -1,0 +1,10 @@
+{
+  "stage": "english",
+  "parameters": 625280,
+  "val_loss_before": 1.8072333931922913,
+  "val_loss_after": 1.7625261545181274,
+  "test_loss_after": 1.8498095273971558,
+  "training_seconds": 58.0,
+  "device": "cpu",
+  "honest_assessment": "Loss measurements on held-out splits only. Lower loss does not by itself prove schoolwork ability; human evaluation is still required."
+}

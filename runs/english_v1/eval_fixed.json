@@ -1,0 +1,59 @@
+{
+  "checkpoint": "runs/english_v1/checkpoint.pt",
+  "stage": "english",
+  "model_config": {
+    "d_model": 96,
+    "n_heads": 3,
+    "n_layers": 3,
+    "context_length": 128
+  },
+  "heldout_char_loss_mean": 2.9924,
+  "heldout_char_loss_per_paragraph": [
+    2.9354,
+    3.0389,
+    2.9155,
+    2.9085,
+    3.1194,
+    2.9266,
+    2.969,
+    3.0466,
+    3.2728,
+    2.999,
+    2.7819,
+    3.0495,
+    3.0654,
+    2.8454,
+    3.0112
+  ],
+  "generation_probes": [
+    "The boy went to school",
+    "The dog ran",
+    "She said",
+    "Once upon a time"
+  ],
+  "samples": [
+    "The boy went to school ht seyore",
+    "The dog ran itamea tethast n e \nue latontend thon y:ouy t st 7oomatMhn te",
+    "She saidens  .",
+    "Once upon a timeyorkon m woke rellain d /remixon nt wrird ooJind st,."
+  ],
+  "repetition_stats": [
+    {
+      "top4gram_share": 0.25,
+      "word_repeat_rate": 0.0
+    },
+    {
+      "top4gram_share": 0.083,
+      "word_repeat_rate": 0.0
+    },
+    {
+      "top4gram_share": 0.0,
+      "word_repeat_rate": 0.0
+    },
+    {
+      "top4gram_share": 0.1,
+      "word_repeat_rate": 0.0
+    }
+  ],
+  "note": "Fixed evaluation on the held-out set (never trained on). Loss is per-character, teacher-forced. Samples are recorded verbatim, unedited. This does not certify fluency."
+}

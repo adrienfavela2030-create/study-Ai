@@ -1,0 +1,59 @@
+{
+  "checkpoint": "runs/english_v2/checkpoint.pt",
+  "stage": "english",
+  "model_config": {
+    "d_model": 128,
+    "n_heads": 4,
+    "n_layers": 3,
+    "context_length": 128
+  },
+  "heldout_char_loss_mean": 1.9374,
+  "heldout_char_loss_per_paragraph": [
+    1.8234,
+    1.8606,
+    1.8636,
+    1.9103,
+    2.2755,
+    1.8822,
+    1.5974,
+    2.0769,
+    2.3084,
+    1.9513,
+    1.8144,
+    1.8197,
+    1.9846,
+    2.2605,
+    1.6327
+  ],
+  "generation_probes": [
+    "The boy went to school",
+    "The dog ran",
+    "She said",
+    "Once upon a time"
+  ],
+  "samples": [
+    "The boy went to schooluld not Prount Eace CWermally Gud, a did not fly anow treep to sees. They live that seepuse.",
+    "The dog rang hem a the saw was the catturt ew him the fill saw att in the sea, and boal the little baster.",
+    "She saids is not too the pick. Will the each he never make crocks somide and the his by seen and heir belies.",
+    "Once upon a times to to all This is a ove; and chat bed the flag place, There trank ol her wonds some that up."
+  ],
+  "repetition_stats": [
+    {
+      "top4gram_share": 0.053,
+      "word_repeat_rate": 0.0
+    },
+    {
+      "top4gram_share": 0.048,
+      "word_repeat_rate": 0.0
+    },
+    {
+      "top4gram_share": 0.05,
+      "word_repeat_rate": 0.0
+    },
+    {
+      "top4gram_share": 0.045,
+      "word_repeat_rate": 0.042
+    }
+  ],
+  "note": "Fixed evaluation on the held-out set (never trained on). Loss is per-character, teacher-forced. Samples are recorded verbatim, unedited. This does not certify fluency."
+}

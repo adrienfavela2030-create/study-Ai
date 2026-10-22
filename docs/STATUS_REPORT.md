@@ -9,8 +9,9 @@ real PyTorch training runs.
 |---|---|---|---|
 | numpy_smoke_v2 (NumPy, corrected) | 13,992 | 6.54 → 3.19 | verified: alignment, gradcheck (worst ratio 0.265 ≤ 1), full-logit reload, resume with independently sampled batches (max param diff 0.0) |
 | english_v1 | 357,312 | 4.44 → 1.34 | real improvement on held-out text; artifact labeled weight_initialization (no optimizer state was saved at run time) |
+| **english_v2 (public-domain corpus)** | 625,280 | 4.70 → 1.76 | **measured increment**: fixed held-out eval char loss 2.99 → 1.94 over 4500 steps (three true resumes); samples show English-like structure, still NOT fluent — see runs/english_v2/COMPARISON.md |
 | knowledge_v1 (init from english) | 357,312 | 1.28 → 1.34 | **val regressed** — overfit the 36-line knowledge corpus |
-| supervised_v1 (init from knowledge) | 357,312 | 3.48 → 4.11 (eval) / 4.4 → 0.26 (masked response loss) | **val regressed** — overfit 11 SFT examples |
+| supervised_v1 (init from knowledge) | 357,312 | 3.48 → 4.11 (eval) / 4.4 → 0.26 (masked response loss) | val regressed; contamination SUSPECTED in review, INVESTIGATED and DISPROVEN (see runs/supervised_v1/INVESTIGATION.md); real limitation: the val/test splits hold 1 example each, so the held-out SFT evaluation is statistically nearly empty |
 | ocr_v1 (from-scratch CNN+BiLSTM+CTC) | — | char accuracy **1.000** on 50 held-out synthetic images | real, synthetic data only |
 
 Generated samples from supervised_v1 (recorded verbatim, unedited):
@@ -46,16 +47,22 @@ the UI claims otherwise.
 
 ## Test results (actually executed, this session)
 
-- Python: **49 tests — 49 passed, 0 failed, 0 skipped** (PyTorch is now
-  installed, so previously skipped tests now run).
+- Python: **57 tests — 57 passed, 0 failed, 0 skipped**.
 - Node (deployed app logic): **34 passed, 0 failed, 0 skipped**.
+- Fixed English evaluation: executed on english_v1 and english_v2
+  (`python -m study.eval_english <checkpoint>`), reports in
+  runs/english_v1/eval_fixed.json and runs/english_v2/eval_fixed.json.
 
 ## Known limitations (disclosed, not hidden)
 
-1. **The language model cannot generate English.** 357k parameters on a
-   few KB of original text cannot learn a language — fluency was not
-   achieved in these experiments. Every app answer is deterministic
-   rules + retrieval, labeled as such.
+1. **The language model cannot generate English.** Fluency was not
+   achieved in these experiments. The measured english_v2 increment
+   (625k params, 394 KB public-domain corpus, 4500 steps) improved the
+   fixed held-out loss 35% and its samples now show English-like words,
+   punctuation and rhythm — but they remain word-salad without sentence
+   meaning. Every app answer is deterministic rules + retrieval, labeled
+   as such. The specific remaining training steps are recorded in
+   runs/english_v2/COMPARISON.md.
 2. **The from-scratch OCR works on synthetic images only.** Real-photo
    OCR accuracy is unknown and must not be claimed. The browser's
    pretrained Tesseract path has been REMOVED from the compliant build:
