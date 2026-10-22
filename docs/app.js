@@ -239,6 +239,72 @@ addMsg("bot","Error: "+(e.message||e));
 }
 var hwMode="explain", hwQs=[], hwSubj="general";
 var SUBJECTS=[{id:"english",label:"English / Reading"},{id:"math",label:"Math"},{id:"science",label:"Science"},{id:"history",label:"History"},{id:"general",label:"General"}];
+var FABLES={
+"swollen fox":{title:"The Swollen Fox",moral:"Greed can trap you.",points:["A hungry fox finds food in a tree hollow and crawls in.","He eats so much that he becomes too fat to get out.","Another fox tells him he must wait until he is thin again.","Moral: do not be greedy or you may get stuck in trouble."]},
+"flies and the honey":{title:"The Flies and the Honey-Pot",moral:"Careless pleasure can hurt you.",points:["Flies smell honey and land on it.","They get stuck and cannot fly away.","They realize the sweet treat was a trap.","Moral: do not rush into something just because it looks good."]},
+"hen and the golden":{title:"The Hen and the Golden Eggs",moral:"Greed can ruin what you already have.",points:["A hen lays a golden egg each day.","The owner wants all the gold at once and kills the hen.","There is no gold inside — only a normal hen.","Moral: patience is better than greed."]},
+"ants and the grasshopper":{title:"The Ants and the Grasshopper",moral:"Prepare for the future.",points:["Ants work hard storing food for winter.","A grasshopper only sings and plays in summer.","When winter comes the grasshopper is hungry.","Moral: work and plan ahead so you are ready later."]},
+"wolf in sheep":{title:"The Wolf in Sheep's Clothing",moral:"Do not trust looks alone.",points:["A wolf puts on a sheep skin to hide.","The flock lets him close because he looks like a sheep.","He tricks them and attacks.","Moral: appearances can hide bad intentions."]},
+"fox and the woodcutter":{title:"The Fox and the Woodcutter",moral:"Actions matter more than words.",points:["A fox asks a woodcutter to hide him from hunters.","The woodcutter says yes with words but points to the fox with his hand.","Hunters see the signal and catch the fox.","Moral: what people do shows the truth more than what they say."]},
+"miser":{title:"The Miser",moral:"Treasure is useless if you never use it.",points:["A miser buries his gold and only visits it.","A thief steals the gold.","A neighbor says he can bury a stone and pretend — the gold was never used.","Moral: wealth only helps if you use it."]}
+};
+function matchFable(text){
+var t=(text||"").toLowerCase();
+if(/swollen|too fat|hollow/.test(t)) return FABLES["swollen fox"];
+if(/flies|honey/.test(t)) return FABLES["flies and the honey"];
+if(/golden|hen and/.test(t)) return FABLES["hen and the golden"];
+if(/ant|grasshopper/.test(t)) return FABLES["ants and the grasshopper"];
+if(/wolf|sheep.?s clothing|sheep clothing/.test(t)) return FABLES["wolf in sheep"];
+if(/woodcutter|wood cutter/.test(t)) return FABLES["fox and the woodcutter"];
+if(/miser/.test(t)) return FABLES["miser"];
+if(/fox/.test(t) && /wood/.test(t)) return FABLES["fox and the woodcutter"];
+return null;
+}
+function cleanOcrHomework(raw){
+if(!raw) return "";
+var t=raw.replace(/\r/g,"\n");
+t=t.replace(/[^\w\s#\.\?\!\,\'\"\-\:\(\)\n]/g," ");
+t=t.replace(/[ \t]+/g," ");
+var lines=t.split("\n").map(function(l){return l.trim();}).filter(Boolean);
+var out=[];
+for(var i=0;i<lines.length;i++){
+var l=lines[i];
+var words=l.split(/\s+/).filter(function(w){return /[a-zA-Z]{2,}/.test(w)||/^\d+$/.test(w)||/^#?\d+/.test(w);});
+if(words.length>=1) out.push(words.join(" "));
+}
+return out.join("\n");
+}
+function parseHomeworkQs(text){
+text=cleanOcrHomework(text);
+var checks=[
+{keys:/swollen|fox.*fat|fat.*fox/i, title:"The Swollen Fox"},
+{keys:/flies|honey/i, title:"The Flies and the Honey-Pot"},
+{keys:/golden|hen and/i, title:"The Hen and the Golden Eggs"},
+{keys:/ants? and|grasshopper/i, title:"The Ants and the Grasshopper"},
+{keys:/wolf|sheep/i, title:"The Wolf in Sheep's Clothing"},
+{keys:/woodcutter|wood.?cutter/i, title:"The Fox and the Woodcutter"},
+{keys:/miser/i, title:"The Miser"}
+];
+var found=[], seen={};
+for(var i=0;i<checks.length;i++){
+if(checks[i].keys.test(text) && !seen[checks[i].title]){
+seen[checks[i].title]=1;
+found.push(checks[i].title);
+}
+}
+if(found.length){
+return found.map(function(title,i){ return {n:i+1, text:title}; });
+}
+var parts=text.split(/(?=#?\s*\d+[\).:\-]|question\s*\d+)/i).map(function(p){return p.trim();}).filter(function(p){return p.length>4;});
+if(parts.length>1){
+return parts.slice(0,10).map(function(p,i){ return {n:i+1, text:p.slice(0,200)}; });
+}
+var lines=text.split("\n").filter(function(l){return l.trim().length>4;});
+if(lines.length>1){
+return lines.slice(0,10).map(function(l,i){ return {n:i+1, text:l.trim().slice(0,200)}; });
+}
+return [{n:1, text:text.slice(0,300)||"Homework question"}];
+}
 function hwStep(n){
 var steps=$("hw-steps").children;
 for(var i=0;i<steps.length;i++) steps[i].className="step"+(i+1<n?" done":(i+1===n?" on":""));
@@ -257,7 +323,10 @@ var f=input.files&&input.files[0]; if(!f) return;
 if(f.type && f.type.indexOf("image")===0){
 try{ $("hw-img").src=URL.createObjectURL(f); $("hw-img").style.display="block"; }catch(e){}
 runOCR(f, function(text){
-if(text) $("hw-text").value = $("hw-text").value ? ($("hw-text").value+"\n\n"+text) : text;
+if(text){
+var cleaned=cleanOcrHomework(text);
+$("hw-text").value = $("hw-text").value ? ($("hw-text").value+"\n\n"+cleaned) : cleaned;
+}
 }, $("hw-st"));
 } else {
 $("hw-st").textContent="File: "+f.name+". Paste or type the questions.";
@@ -266,9 +335,13 @@ $("hw-st").textContent="File: "+f.name+". Paste or type the questions.";
 function hwNext1(){
 var t=$("hw-text").value.trim();
 if(!t){ $("hw-st").textContent="Add a photo or type text."; $("hw-st").className="status warn"; return; }
-hwQs=t.split(/\n/).filter(function(l){ return l.trim().length>5; }).slice(0,12).map(function(q,i){ return {n:i+1,text:q.trim().slice(0,300)}; });
-if(!hwQs.length) hwQs=[{n:1,text:t.slice(0,300)}];
-hwSubj=/fable|aesop|story|theme|poem/i.test(t)?"english":(/\d\s*[+\-*=]|solve|equation/i.test(t)?"math":"general");
+hwQs=parseHomeworkQs(t);
+if(/fable|aesop|fox|ant|grasshopper|wolf|sheep|moral|woodcutter|swollen|flies|honey|hen|golden|miser/i.test(t))
+hwSubj="english";
+else if(/\d\s*[+\-*=]|solve|equation/i.test(t))
+hwSubj="math";
+else
+hwSubj="general";
 var box=$("hw-qs"); box.innerHTML="";
 for(var i=0;i<hwQs.length;i++){
 var d=document.createElement("div"); d.className="qitem";
@@ -290,16 +363,81 @@ list.appendChild(b);
 });
 $("ov").classList.add("open");
 }
+function modeLabel(){
+if(hwMode==="explain") return "Explain";
+if(hwMode==="solve") return "Solve";
+return "Explain + Solve";
+}
+function buildFableHelp(fable){
+var lines=[];
+lines.push(fable.title);
+lines.push("");
+if(hwMode!=="solve"){
+lines.push("How to understand it");
+for(var i=0;i<fable.points.length;i++) lines.push((i+1)+". "+fable.points[i]);
+lines.push("");
+}
+if(hwMode!=="explain"){
+lines.push("Solved answer");
+lines.push("Story: "+fable.points.slice(0,3).join(" "));
+lines.push("Moral: "+fable.moral);
+lines.push("");
+lines.push("You can write:");
+lines.push('"In '+fable.title+', ... '+fable.moral+'"');
+}
+return lines;
+}
 function hwGo(){
 var selected=[];
 for(var i=0;i<hwQs.length;i++){ var cb=$("qq"+i); if(cb&&cb.checked) selected.push(hwQs[i]); }
 if(!selected.length) selected=hwQs.slice(0,1);
 var lab=hwSubj; for(var i=0;i<SUBJECTS.length;i++) if(SUBJECTS[i].id===hwSubj) lab=SUBJECTS[i].label;
-var lines=["Subject: "+lab, "Mode: "+hwMode, ""];
+var lines=["Subject: "+lab, "Mode: "+modeLabel(), ""];
 for(var i=0;i<selected.length;i++){
-lines.push("────────","Question #"+selected[i].n, selected[i].text, "");
-if(hwMode!=="answer") lines.push("1. Restate the question","2. Use a detail from the text","3. Explain your thinking");
-if(hwMode!=="explain") lines.push("Answer in complete sentences.","Draft: _______________");
+var q=selected[i];
+lines.push("────────");
+lines.push("Question #"+q.n);
+lines.push(q.text);
+lines.push("");
+var fable=matchFable(q.text);
+if(fable){
+lines=lines.concat(buildFableHelp(fable));
+} else if(hwSubj==="english"){
+if(hwMode!=="solve"){
+lines.push("How to answer");
+lines.push("1. Name the characters");
+lines.push("2. Say what happens (beginning → middle → end)");
+lines.push("3. State the lesson / moral in one sentence");
+lines.push("");
+}
+if(hwMode!=="explain"){
+lines.push("Solved answer frame");
+lines.push("Characters: _______________");
+lines.push("What happens: _______________");
+lines.push("Moral: _______________");
+}
+} else if(hwSubj==="math"){
+lines.push("Solve steps");
+lines.push("1. Write what you know");
+lines.push("2. Write what you need to find");
+lines.push("3. Choose a method");
+lines.push("4. Show your work");
+lines.push("5. Check the answer");
+lines.push("Work: _______________");
+} else {
+if(hwMode!=="solve"){
+lines.push("How to think about it");
+lines.push("1. Restate the question in your own words");
+lines.push("2. Pull one detail from the page");
+lines.push("3. Explain why it matters");
+lines.push("");
+}
+if(hwMode!=="explain"){
+lines.push("Solved answer");
+lines.push("Write 2–4 complete sentences using a detail from the assignment.");
+lines.push("Draft: _______________");
+}
+}
 lines.push("");
 }
 $("hw-out").innerHTML='<div class="meta">Homework · '+esc(lab)+'</div>'+esc(lines.join("\n"));
