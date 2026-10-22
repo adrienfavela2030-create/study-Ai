@@ -66,6 +66,8 @@ def validate_tokenizer(tok: CharTokenizer) -> dict:
         "12 + 7 = 19", "x - y", 'She said "stop"', "line one\nline two",
         "Gordon Korman", "Restart: a novel", "Don't stop",
         "Aesop's Fables: The Fox and the Grapes",
+        "12 \u00d7 4 = 48", "6 \u00f7 2 = 3", "5 \u2212 3 = 2",
+        "\u201ccurly quotes\u201d and \u2018apostrophes\u2019", "en\u2013dash and em\u2014dash", "90\u00b0F", "\u00bd off",
     ]
     failures = []
     for text in cases:
@@ -128,8 +130,9 @@ def main(steps: int = 120, seed: int = 0):
     # 1. Gradient check — including randomized non-unit layernorm scales
     gx, gy = sample_batch(data.train, tok, np.random.default_rng(3), T=16, batch=2)
     report = model.gradcheck(gx, gy)
-    worst = max(report.values())
-    print(f"gradcheck worst relative error: {worst:.3e} across {len(report)} parameter tensors (randomized gamma)")
+    worst = max(v for k, v in report.items() if not k.startswith("_"))
+    print(f"gradcheck worst error: {worst:.3e} across {len(report) - 1} parameter tensors "
+          f"(sampled check, randomized gamma, {report.get('_n_subfloor_entries', 0)} sub-floor entries measured absolutely)")
     if worst > 1e-3:
         print("GRADCHECK FAILED")
         sys.exit(1)
@@ -182,7 +185,7 @@ def main(steps: int = 120, seed: int = 0):
     sample_after = generate(model, tok, "The student ")
     print(f"loss after training:  val={val_after:.4f} test={test_after:.4f}  ({elapsed:.1f}s)")
 
-    # 6. Save real checkpoint (tokenizer vocab included for compatibility)
+    # 6. Save real checkpoint (tokenizer vocab + optimizer state included)
     run_dir = RUNS / "numpy_smoke_v2"
     run_dir.mkdir(parents=True, exist_ok=True)
     save_checkpoint(
@@ -196,44 +199,72 @@ def main(steps: int = 120, seed: int = 0):
             "corpus": "study/data/corpus_english.txt (original text)",
             "tokenizer_vocab": tok.itos,
         },
+        optimizer=opt,
     )
     with open(run_dir / "log.json", "w") as f:
         json.dump(log, f)
 
-    # 7. Reload determinism: same input, identical loss before and after reload
-    rx, ry = sample_batch(data.test, tok, np.random.default_rng(11), T=64, batch=8)
-    loss_pre, _ = model.loss_and_logits(rx, ry)
-    m2, meta = load_checkpoint(str(run_dir / "checkpoint.json"))
-    loss_post, _ = m2.loss_and_logits(rx, ry)
-    reload_ok = abs(loss_pre - loss_post) < 1e-12
-    print(f"checkpoint reload determinism: {reload_ok} (loss {loss_pre:.6f} -> {loss_post:.6f})")
+    # 7. Reload determinism: same input, IDENTICAL full logits before and
+    #    after reload (a scalar loss match is weaker than claimed before)
+    fx, fy = sample_batch(data.val, tok, np.random.default_rng(11), T=64, batch=8)
+    logits_pre = model.forward(fx).copy()
+    m2, meta, opt_state = load_checkpoint(str(run_dir / "checkpoint.json"))
+    logits_post = m2.forward(fx)
+    reload_ok = np.array_equal(logits_pre, logits_post)
+    print(f"checkpoint reload determinism (full logits): {reload_ok}")
 
-    # 8. Resume check: continuing training from the checkpoint reduces loss further
-    resume_model, _ = load_checkpoint(str(run_dir / "checkpoint.json"))
-    resume_opt = Adam(resume_model.params, lr=0.01)
-    for _ in range(30):
-        cache: dict = {}
-        loss, _ = resume_model.loss_and_logits(rx, ry, cache)
-        grads = resume_model.backward(cache, ry)
-        resume_opt.step(resume_model.params, grads)
-    loss_resumed = evaluate(resume_model, tok, data.test, np.random.default_rng(42))
-    resume_ok = loss_resumed < test_after + 0.5  # no explosion
-    print(f"resume-from-checkpoint training: {resume_ok} (test loss {test_after:.4f} -> {loss_resumed:.4f})")
+    # 8. True resume verification: an uninterrupted continuation and a
+    #    checkpoint-reload continuation must produce IDENTICAL parameters
+    #    after the same updates on the same batches (train data only).
+    fixed_rng = np.random.default_rng(777)
+    fixed_batches = [sample_batch(data.train, tok, fixed_rng, T=64, batch=16) for _ in range(5)]
+
+    def run_continuation(m, o):
+        for bx, by in fixed_batches:
+            cache: dict = {}
+            m.loss_and_logits(bx, by, cache)
+            grads = m.backward(cache, by)
+            o.step(m.params, grads)
+        return m
+
+    # (a) uninterrupted: keep training the in-memory model/optimizer
+    import copy as _copy
+    model_uninterrupted = _copy.deepcopy(model)
+    opt_uninterrupted = Adam(model_uninterrupted.params, lr=opt.lr)
+    opt_uninterrupted.m = {k: v.copy() for k, v in opt.m.items()}
+    opt_uninterrupted.v = {k: v.copy() for k, v in opt.v.items()}
+    opt_uninterrupted.t = opt.t
+    run_continuation(model_uninterrupted, opt_uninterrupted)
+
+    # (b) reloaded: restore model AND optimizer state from the checkpoint
+    model_reloaded, _, opt_state2 = load_checkpoint(str(run_dir / "checkpoint.json"))
+    opt_reloaded = Adam(model_reloaded.params, lr=opt_state2["lr"])
+    opt_reloaded.load_state_dict(opt_state2)
+    run_continuation(model_reloaded, opt_reloaded)
+
+    max_param_diff = max(
+        float(np.abs(model_uninterrupted.params[k] - model_reloaded.params[k]).max())
+        for k in model_uninterrupted.params
+    )
+    resume_ok = max_param_diff < 1e-12
+    print(f"resume-from-checkpoint reproducibility: {resume_ok} "
+          f"(max parameter difference after 5 identical updates: {max_param_diff:.2e})")
 
     eval_report = {
         "experiment": "numpy_smoke_v2",
         "what_was_trained": "1-block decoder-only Transformer, 24-dim, next-character prediction",
         "parameters": cfg.param_count(),
         "tokenizer_report": tok_report,
-        "gradcheck_worst_relative_error": worst,
-        "gradcheck_conditions": "randomized non-unit layernorm gamma",
+        "gradcheck_worst_error": worst,
+        "gradcheck_conditions": "sampled check (3 entries/tensor), randomized non-unit layernorm gamma, combined abs+rel criterion",
         "next_token_alignment_check": alignment_ok,
         "val_loss_before": val_before,
         "val_loss_after": val_after,
         "test_loss_before": test_before,
         "test_loss_after": test_after,
-        "reload_determinism": reload_ok,
-        "resume_training_ok": resume_ok,
+        "reload_determinism_full_logits": reload_ok,
+        "resume_reproducibility": resume_ok,
+        "resume_verification": "uninterrupted vs checkpoint-reloaded continuations compared on identical batches (train data)",
         "training_seconds": round(elapsed, 1),
         "sample_before": sample_before,
         "sample_after": sample_after,
@@ -253,23 +284,29 @@ def main(steps: int = 120, seed: int = 0):
         json.dump(eval_report, f, indent=2)
     print(f"saved checkpoint + log + eval report to {run_dir}")
 
-    # 9. runs manifest — only records what actually happened
-    manifest = {
+    # 9. runs manifest — only records what actually happened; MERGES with
+    #    the existing manifest so entries from other stages survive
+    manifest = {}
+    if (RUNS / "manifest.json").exists():
+        try:
+            manifest = json.loads((RUNS / "manifest.json").read_text())
+        except ValueError:
+            manifest = {}
+    manifest.update({
         "numpy_smoke_v1": {
             "status": "archived_defective",
             "note": "Trained with double-shifted targets; see runs/archive/numpy_smoke_v1/CORRECTION.md. Do not use.",
         },
         "numpy_smoke_v2": {
-            "status": "completed",
+            "status": "completed", "kind": "experiment",
             "when": datetime.now(timezone.utc).isoformat(),
             "checkpoint": "runs/numpy_smoke_v2/checkpoint.json",
-            "note": "Corrected experiment: verified alignment, non-unit-gamma gradcheck, deterministic reload, resume. Real training, real checkpoint. NOT fluent English — see eval_report.json.",
+            "note": "Corrected experiment: verified alignment, non-unit-gamma gradcheck, full-logit reload determinism, reproducible resume. Real training, real checkpoint. NOT fluent English — see eval_report.json.",
         },
-        "english_full_pretraining": {"status": "not_started", "note": "Requires the PyTorch pipeline and a larger corpus on suitable hardware."},
-        "knowledge_training": {"status": "not_started"},
-        "educational_sft": {"status": "not_started"},
-        "ocr_training": {"status": "not_started"},
-    }
+        "english_full_pretraining": {"status": "not_started", "kind": "full_stage", "note": "Fluency needs data/compute far beyond these experiments."},
+        "knowledge_training": {"status": "not_started", "kind": "full_stage"},
+        "educational_sft": {"status": "not_started", "kind": "full_stage"},
+    })
     with open(RUNS / "manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
     print("runs/manifest.json updated — records only stages that actually ran.")

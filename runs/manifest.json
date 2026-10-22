@@ -5,42 +5,54 @@
   },
   "numpy_smoke_v2": {
     "status": "completed",
-    "when": "2026-10-22T03:40:36.491327+00:00",
+    "kind": "experiment",
+    "when": "2026-10-22T03:55:35.228564+00:00",
     "checkpoint": "runs/numpy_smoke_v2/checkpoint.json",
-    "note": "Corrected experiment: verified alignment, non-unit-gamma gradcheck, deterministic reload, resume. Real training, real checkpoint. NOT fluent English \u2014 see eval_report.json."
+    "note": "Corrected experiment: verified alignment, non-unit-gamma gradcheck, full-logit reload determinism, reproducible resume. Real training, real checkpoint. NOT fluent English \u2014 see eval_report.json."
   },
   "english_full_pretraining": {
     "status": "not_started",
-    "note": "Requires the PyTorch pipeline and a larger corpus on suitable hardware."
+    "kind": "full_stage",
+    "note": "Fluency needs data/compute far beyond these experiments."
   },
   "knowledge_training": {
-    "status": "not_started"
+    "status": "not_started",
+    "kind": "full_stage"
   },
   "educational_sft": {
-    "status": "not_started"
-  },
-  "ocr_training": {
-    "status": "not_started"
+    "status": "not_started",
+    "kind": "full_stage"
   },
   "english_v1": {
     "status": "completed",
-    "when": "2026-10-22T03:43:33.860145+00:00",
-    "checkpoint": "runs/english_v1/checkpoint.pt"
+    "kind": "experiment",
+    "when": "2026-10-22T03:54:19.712502+00:00",
+    "checkpoint": "runs/english_v1/checkpoint.pt",
+    "note": "Sandbox experiment (357k params, tiny original corpus). Real run, val 4.44 -> 1.34. NOT fluency.",
+    "report": "runs/english_v1/eval_report.json"
   },
   "knowledge_v1": {
     "status": "completed",
-    "when": "2026-10-22T03:43:40.767138+00:00",
-    "checkpoint": "runs/knowledge_v1/checkpoint.pt"
+    "kind": "experiment",
+    "when": "2026-10-22T03:54:19.712555+00:00",
+    "checkpoint": "runs/knowledge_v1/checkpoint.pt",
+    "note": "Sandbox experiment. Real run; val regressed 1.28 -> 1.34 (overfit tiny corpus).",
+    "report": "runs/knowledge_v1/eval_report.json"
   },
   "supervised_v1": {
     "status": "completed",
-    "when": "2026-10-22T03:43:45.974118+00:00",
-    "checkpoint": "runs/supervised_v1/checkpoint.pt"
+    "kind": "experiment",
+    "when": "2026-10-22T03:54:19.712585+00:00",
+    "checkpoint": "runs/supervised_v1/checkpoint.pt",
+    "note": "Sandbox experiment. Real run; masked response loss 4.4 -> 0.26 but samples are not English (see STATUS_REPORT).",
+    "report": "runs/supervised_v1/eval_report.json"
   },
   "ocr_v1": {
     "status": "completed",
-    "when": "2026-10-22T03:49:11.377203+00:00",
+    "kind": "experiment",
+    "when": "2026-10-22T03:54:19.712620+00:00",
     "checkpoint": "runs/ocr_v1/checkpoint.pt",
-    "note": "Synthetic printed text only; not tested on real photos."
+    "note": "Sandbox experiment. From-scratch OCR, 1.000 char accuracy on held-out SYNTHETIC images only; not tested on photos.",
+    "report": "runs/ocr_v1/eval_report.json"
   }
 }

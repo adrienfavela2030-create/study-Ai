@@ -303,11 +303,13 @@ class TinyNumPyTransformer:
         analytic = self.backward(cache, targets)
         rng = np.random.default_rng(1)
         report: dict[str, float] = {}
-        # Absolute floor: gradients that are genuinely tiny cannot be
-        # checked reliably by finite differences (the loss difference
-        # falls below float64 noise), so treat sub-floor entries as
-        # exact instead of dividing by a near-zero denominator.
+        # Combined absolute+relative criterion: a sub-floor entry
+        # (both gradients below atol) is recorded as an absolute error
+        # rather than skipped, so the reported worst value is a true
+        # upper bound over every sampled entry. This is a SAMPLED check
+        # (samples_per_tensor random entries per tensor), not exhaustive.
         atol = 1e-6
+        n_subfloor = 0
         for name, arr in self.params.items():
             worst = 0.0
             for _ in range(samples_per_tensor):
@@ -323,10 +325,14 @@ class TinyNumPyTransformer:
                 num = (lp - lm) / (2 * eps)
                 ana = analytic[name][idx]
                 if abs(num) < atol and abs(ana) < atol:
-                    continue
-                denom = max(abs(num), abs(ana), atol)
-                worst = max(worst, abs(num - ana) / denom)
+                    n_subfloor += 1
+                    err = abs(num - ana)  # absolute error only
+                else:
+                    denom = max(abs(num), abs(ana), atol)
+                    err = abs(num - ana) / denom
+                worst = max(worst, err)
             report[name] = worst
+        report["_n_subfloor_entries"] = n_subfloor  # not an error value
         return report
 
 
@@ -339,6 +345,18 @@ class Adam:
         self.m = {k: np.zeros_like(v) for k, v in params.items()}
         self.v = {k: np.zeros_like(v) for k, v in params.items()}
         self.t = 0
+
+    def state_dict(self) -> dict:
+        """Optimizer state for checkpointing (Adam moments + step count)."""
+        return {"lr": self.lr, "t": self.t,
+                "m": {k: v.tolist() for k, v in self.m.items()},
+                "v": {k: v.tolist() for k, v in self.v.items()}}
+
+    def load_state_dict(self, state: dict) -> None:
+        self.lr = state["lr"]
+        self.t = state["t"]
+        self.m = {k: np.array(v) for k, v in state["m"].items()}
+        self.v = {k: np.array(v) for k, v in state["v"].items()}
 
     def step(self, params: dict[str, np.ndarray], grads: dict[str, np.ndarray]):
         self.t += 1
@@ -353,12 +371,17 @@ class Adam:
 # ----------------------------------------------------------------------
 # Checkpointing
 # ----------------------------------------------------------------------
-def save_checkpoint(path: str, model: TinyNumPyTransformer, meta: dict) -> None:
+def save_checkpoint(path: str, model: TinyNumPyTransformer, meta: dict,
+                    optimizer: "Adam | None" = None) -> None:
     payload = {
         "config": model.cfg.to_dict(),
         "params": {k: v.tolist() for k, v in model.params.items()},
         "meta": meta,
     }
+    if optimizer is not None:
+        # optimizer state (Adam moments + step count) so training can be
+        # resumed reproducibly, not just re-fit from the parameters
+        payload["optimizer"] = optimizer.state_dict()
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f)
 
@@ -382,4 +405,4 @@ def load_checkpoint(path: str) -> tuple[TinyNumPyTransformer, dict]:
             )
         if model.params["tok_emb"].shape[0] != len(saved_vocab):
             raise ValueError("checkpoint embedding table does not match saved vocab")
-    return model, meta
+    return model, meta, payload.get("optimizer")

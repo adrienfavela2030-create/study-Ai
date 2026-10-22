@@ -103,9 +103,25 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"device: {device}")
 
-    tok = build_tokenizer(args.stage)
     train_lines, val_lines, test_lines = load_stage_data(args.stage)
     print(f"data: train={len(train_lines)} val={len(val_lines)} test={len(test_lines)}")
+
+    if args.init_from:
+        # Reuse the checkpoint's EXACT vocabulary: rebuilding the tokenizer
+        # from the new stage's corpus could silently remap token meanings
+        # (same length, different order). The saved vocab is authoritative.
+        ckpt_early = torch.load(args.init_from, map_location="cpu", weights_only=True)
+        saved_vocab = ckpt_early.get("vocab")
+        if saved_vocab is None:
+            raise SystemExit(
+                f"{args.init_from} carries no tokenizer vocab — cannot guarantee "
+                "token identity across stages; refusing to continue silently"
+            )
+        tok = CharTokenizer(saved_vocab)
+        print(f"tokenizer reused from checkpoint (vocab size {tok.vocab_size()})")
+    else:
+        tok = build_tokenizer(args.stage)
+        print(f"tokenizer trained on stage corpus (vocab size {tok.vocab_size()})")
 
     model = TransformerLM(
         vocab_size=tok.vocab_size(), d_model=args.width, n_heads=args.heads,
@@ -115,9 +131,14 @@ def main():
     print(f"parameters (randomly initialized): {n_params}")
 
     if args.init_from:
-        ckpt = torch.load(args.init_from, map_location=device, weights_only=True)
-        model.load_state_dict(ckpt["model"])
-        print(f"resumed from {args.init_from} (step {ckpt.get('step')})")
+        ckpt_vocab_size = ckpt_early["model"]["tok_emb.weight"].shape[0]
+        if ckpt_vocab_size != tok.vocab_size():
+            raise SystemExit(
+                f"checkpoint embedding table ({ckpt_vocab_size}) does not "
+                f"match its saved vocab ({tok.vocab_size()}) — corrupt checkpoint"
+            )
+        model.load_state_dict(ckpt_early["model"])
+        print(f"resumed from {args.init_from} (step {ckpt_early.get('step')})")
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -193,7 +214,8 @@ def main():
         {"model": model.state_dict(), "step": args.steps, "stage": args.stage,
          "created": datetime.now(timezone.utc).isoformat(), "vocab": tok.itos,
          "model_config": {"d_model": args.width, "n_heads": args.heads,
-                          "n_layers": args.layers, "context_length": args.context}},
+                          "n_layers": args.layers, "context_length": args.context},
+         "optimizer": opt.state_dict(), "rng": torch.get_rng_state()},
         ckpt_path,
     )
     with open(run_dir / "log.json", "w") as f:

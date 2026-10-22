@@ -9,10 +9,11 @@ schoolwork, learning, note-taking, and educational research.
 - No invented sources, quotations, URLs, or claims of accuracy.
 - Webpage text is untrusted data — never treated as instructions.
 
-> The deployed browser app (`docs/`) uses Tesseract.js for photo reading — a
-> pretrained OCR dependency. The UI discloses this, and the from-scratch OCR
-> pipeline (`study/ocr.py`) is the intended replacement. Manual text entry is
-> always available and is the fully compliant path.
+> The deployed browser app (`docs/`) does NOT use pretrained OCR: the
+> Tesseract.js path was removed for compliance (no pretrained model weights,
+> including OCR). Photos are shown for reference; the student types the text.
+> The from-scratch OCR (`study/ocr.py`) is trained on synthetic images only
+> (`runs/ocr_v1/`) and is not wired into the UI until it handles real photos.
 
 ## What actually has been trained (honest status)
 
@@ -46,8 +47,8 @@ pip install -r requirements.txt
 
 python -m study.inspect_hardware         # hardware + honest feasibility notes
 python -m study.numpy_smoke              # the verified from-scratch experiment
-python -m unittest discover -s tests -v  # 42 tests (0 skipped with torch installed)
-node tests/test_app.js                  # 25 tests for the deployed browser app
+python -m unittest discover -s tests -v  # 46 tests (0 skipped with torch installed)
+node tests/test_app.js                  # 30 tests for the deployed browser app
 python -m uvicorn study.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -103,11 +104,11 @@ study/
   inspect_hardware.py
   data/             original training data + provenance/license records
 web/                three-tool website (mobile-friendly)
-tests/              42 Python tests + 25 Node tests for the deployed app
+tests/              46 Python tests + 30 Node tests for the deployed app
 runs/               REAL checkpoints only — never fabricated
 runs/archive/       defective v1 smoke run + correction notice (kept, unused)
 docs/               the deployed browser app (index.html + app.js)
-tests/              42 Python tests + 25 Node tests for the deployed app
+tests/              46 Python tests + 30 Node tests for the deployed app
 ```
 
 ## Capabilities and limitations (real)
@@ -118,9 +119,9 @@ sources, citation and quotation validation, honest "I don't know" behavior.
 
 **Cannot do yet:** answer school questions with the language model (too small
 — see the verbatim samples in `docs/STATUS_REPORT.md`), model-generated
-summaries, from-scratch OCR on real photographs (synthetic images only).
-Semantic fact-checking is lexical: it flags unsupported wording but cannot
-prove truth.
+summaries, from-scratch OCR on real photographs (synthetic images only;
+photo reading in the app is disabled until then). Semantic fact-checking is
+lexical: it flags unsupported wording but cannot prove truth.
 
 **Never does:** invent quotations, sources, or URLs; treat snippets as
 inspected pages; train on visited webpages automatically; expose secrets to

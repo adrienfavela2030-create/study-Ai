@@ -44,18 +44,21 @@ the UI claims otherwise.
 
 ## Test results (actually executed, this session)
 
-- Python: **42 tests — 42 passed, 0 failed, 0 skipped** (PyTorch is now
+- Python: **46 tests — 46 passed, 0 failed, 0 skipped** (PyTorch is now
   installed, so previously skipped tests now run).
-- Node (deployed app logic): **25 passed, 0 failed, 0 skipped**.
+- Node (deployed app logic): **30 passed, 0 failed, 0 skipped**.
 
 ## Known limitations (disclosed, not hidden)
 
 1. **The language model cannot generate English.** 357k parameters on a
-   few KB of original text cannot learn a language. Every app answer is
-   deterministic rules + retrieval, labeled as such.
+   few KB of original text cannot learn a language — fluency was not
+   achieved in these experiments. Every app answer is deterministic
+   rules + retrieval, labeled as such.
 2. **The from-scratch OCR works on synthetic images only.** Real-photo
-   OCR accuracy is unknown and must not be claimed. The browser path
-   uses pretrained Tesseract.js, now disclosed in the UI.
+   OCR accuracy is unknown and must not be claimed. The browser's
+   pretrained Tesseract path has been REMOVED from the compliant build:
+   photo reading is disabled (the photo is shown; the student types the
+   text) until the from-scratch OCR handles real photos.
 3. **Chapter-specific book answers are not supported** — the system asks
    the student to provide pages rather than inventing content.
 4. **Semantic fact-checking is lexical** — it flags unsupported wording;
@@ -65,9 +68,12 @@ the UI claims otherwise.
 
 ## Remaining milestones
 
-- Scale training: real corpora (MB-scale), GPU hardware, curriculum
+- Scale training: real corpora (MB-scale), far more compute, curriculum
   over english → knowledge → supervised (the CLI and checkpoint format
-  are ready: `python -m study.train --stage ...`).
-- Real-photo OCR training (real photo/scan dataset, layout handling).
+  are ready: `python -m study.train --stage ...`). Fluency is a goal,
+  not a current property — these experiments did not achieve it.
+- Real-photo OCR training (real photo/scan dataset, layout handling),
+  then wiring it into the UI.
+- Serving the trained model in the app (currently unimplemented).
 - Then the visual redesign, deliberately deferred behind working
   intelligence per the specification's own build order.

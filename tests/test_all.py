@@ -59,6 +59,23 @@ class TokenizerTests(unittest.TestCase):
         tok = CharTokenizer.train_from_texts(["abc"], include_ascii=False)
         self.assertEqual(tok.vocab_size(), 4)  # a, b, c, <|eot|>
 
+    def test_extended_charset_roundtrip(self):
+        """Common math/typography characters (×, ÷, −, curly quotes,
+        dashes, °, ½) must survive a round-trip."""
+        cases = ["12 × 4 = 48", "6 ÷ 2 = 3", "5 − 3 = 2", "90°F",
+                '“curly quotes” and ‘apostrophes’', "en–dash and em—dash", "½ off"]
+        for text in cases:
+            with self.subTest(text=text):
+                tok = CharTokenizer.train_from_texts(["plain text"])
+                self.assertEqual(tok.decode(tok.encode(text)), text)
+
+    def test_unknown_char_raises(self):
+        """Characters outside the vocabulary must raise, never be silently
+        dropped (explicit unknown handling per the specification)."""
+        tok = CharTokenizer.train_from_texts(["plain text"], include_ascii=False)
+        with self.assertRaises(ValueError):
+            tok.encode("emoji 😀 here")
+
     def test_splits_disjoint_and_before_training(self):
         lines = [f"line {i}" for i in range(20)]
         data = make_splits(lines)
@@ -241,8 +258,9 @@ class NumPyModelTests(unittest.TestCase):
         invisible at initialization (gamma=1)."""
         model, ids, targets = self._model_and_batch()
         report = model.gradcheck(ids, targets, samples_per_tensor=3, randomize_gamma=True)
-        worst = max(report.values())
+        worst = max(v for k, v in report.items() if not k.startswith("_"))
         self.assertLess(worst, 1e-3, f"gradcheck failed: {report}")
+        self.assertIn("_n_subfloor_entries", report)  # sub-floor entries counted, not skipped
 
     def test_next_token_alignment(self):
         """A model trained on 'ababab' must predict the alternation from
@@ -277,8 +295,8 @@ class NumPyModelTests(unittest.TestCase):
         self.assertLess(loss, loss0)
 
     def test_checkpoint_reload_deterministic(self):
-        """Reload must reproduce the SAME loss on the SAME input, not just
-        'a loss' (the old check was weaker than claimed)."""
+        """Reload must reproduce the SAME full logits on the SAME input,
+        not just 'a loss' (the old check was weaker than claimed)."""
         model, ids, targets = self._model_and_batch()
         opt = Adam(model.params, lr=0.05)
         cache: dict = {}
@@ -286,16 +304,53 @@ class NumPyModelTests(unittest.TestCase):
             model.loss_and_logits(ids, targets, cache)
             grads = model.backward(cache, targets)
             opt.step(model.params, grads)
-        loss1, _ = model.loss_and_logits(ids, targets)
+        logits1 = model.forward(ids).copy()
         path = str(ROOT / "runs" / "_test_ckpt.json")
         (ROOT / "runs").mkdir(exist_ok=True)
         tok = CharTokenizer.train_from_texts(["the student reads the book"])
-        save_checkpoint(path, model, {"stage": "test", "tokenizer_vocab": tok.itos})
-        m2, meta = load_checkpoint(path)
-        loss2, _ = m2.loss_and_logits(ids, targets)
+        save_checkpoint(path, model, {"stage": "test", "tokenizer_vocab": tok.itos},
+                        optimizer=opt)
+        m2, meta, opt_state = load_checkpoint(path)
+        logits2 = m2.forward(ids)
         self.assertEqual(meta["stage"], "test")
-        self.assertEqual(loss1, loss2)
+        self.assertTrue(np.array_equal(logits1, logits2))
         (ROOT / "runs" / "_test_ckpt.json").unlink()
+
+    def test_resume_is_reproducible_continuation(self):
+        """True resume verification: an uninterrupted continuation and a
+        checkpoint-reload continuation (model + optimizer state) must
+        produce IDENTICAL parameters after the same updates."""
+        model, ids, targets = self._model_and_batch()
+        opt = Adam(model.params, lr=0.05)
+        cache: dict = {}
+        for _ in range(5):  # initial training
+            model.loss_and_logits(ids, targets, cache)
+            grads = model.backward(cache, targets)
+            opt.step(model.params, grads)
+        path = str(ROOT / "runs" / "_test_ckpt_resume.json")
+        save_checkpoint(path, model, {"stage": "test"}, optimizer=opt)
+
+        # (a) uninterrupted continuation (deep copy)
+        import copy
+        m_a = copy.deepcopy(model)
+        opt_a = Adam(m_a.params, lr=opt.lr)
+        opt_a.m = {k: v.copy() for k, v in opt.m.items()}
+        opt_a.v = {k: v.copy() for k, v in opt.v.items()}
+        opt_a.t = opt.t
+        # (b) reloaded continuation
+        m_b, _, opt_state = load_checkpoint(path)
+        opt_b = Adam(m_b.params, lr=opt_state["lr"])
+        opt_b.load_state_dict(opt_state)
+        for _ in range(3):  # same updates on both
+            ca: dict = {}; cb: dict = {}
+            m_a.loss_and_logits(ids, targets, ca)
+            m_b.loss_and_logits(ids, targets, cb)
+            opt_a.step(m_a.params, m_a.backward(ca, targets))
+            opt_b.step(m_b.params, m_b.backward(cb, targets))
+        for k in m_a.params:
+            self.assertTrue(np.allclose(m_a.params[k], m_b.params[k], atol=0, rtol=0),
+                            f"resume divergence in {k}")
+        (ROOT / "runs" / "_test_ckpt_resume.json").unlink()
 
     def test_checkpoint_vocab_mismatch_is_an_error(self):
         """A checkpoint whose saved vocab size disagrees with the model's
@@ -331,11 +386,20 @@ class SmokeRunReportTests(unittest.TestCase):
         report = json.loads(path.read_text())
         self.assertLess(report["val_loss_after"], report["val_loss_before"])
         self.assertTrue(report["next_token_alignment_check"])
-        self.assertTrue(report["reload_determinism"])
-        self.assertTrue(report["resume_training_ok"])
+        self.assertTrue(report["reload_determinism_full_logits"])
+        self.assertTrue(report["resume_reproducibility"])
         self.assertTrue(report["tokenizer_report"]["ok"])
         # the report must explicitly deny English fluency
         self.assertIn("NOT", report["honest_assessment"])
+
+    def test_manifest_distinguishes_experiments_from_full_stages(self):
+        path = ROOT / "runs" / "manifest.json"
+        manifest = json.loads(path.read_text())
+        for name in ["english_v1", "knowledge_v1", "supervised_v1", "ocr_v1"]:
+            self.assertEqual(manifest[name].get("kind"), "experiment",
+                             f"{name} must be labeled an experiment, not a full stage")
+        for name in ["english_full_pretraining", "knowledge_training", "educational_sft"]:
+            self.assertEqual(manifest[name].get("kind"), "full_stage")
 
     def test_correction_notice_exists_for_v1(self):
         path = ROOT / "runs" / "archive" / "numpy_smoke_v1" / "CORRECTION.md"

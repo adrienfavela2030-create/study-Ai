@@ -30,9 +30,8 @@ const context = { memory: state.memory, hwStyle: state.hwStyle };
 const names = [
   "cleanOcrText", "isGibberish", "detectSubject", "classifyTask", "solveMath",
   "passageEvidence", "essayPlan", "stripAuthorPrefix", "isAuthorOnly", "resolveQuery",
+  "rememberResult", "mathExplain",
 ];
-const code = names.map(grab).join("\n");
-const factory = new Function("memory", "hwStyle", code + "\nreturn {" + names.join(",") + "};");
 // resolveQuery references extractBookHints/isCorrection/cleanQuery too
 function grabAll(extra) {
   const all = names.concat(extra);
@@ -82,27 +81,33 @@ const worksheet = [
   "The fox jumped high to reach the grapes on the vine but could not touch them.",
   "1. What was the text mostly about? The fox and the grapes.",
   "A) The fox giving up B) The fox reaching the grapes",
-].join(" ");
+].join("\n");
 const ev = app.passageEvidence("1. What was the text mostly about? The fox and the grapes.", worksheet);
 check("passageEvidence ignores instructions and choices",
   ev && ev.sentence.includes("fox jumped high") && !ev.sentence.startsWith("Read") && !ev.sentence.startsWith("A)"));
 
-// --- Help Me Understand must not reveal the answer (math path in buildAnswer) ---
-// buildAnswer is not pure-grabbable (uses hwMode etc.), so test solveMath +
-// the app text indirectly: verify solveMath exists and the explain path in
-// the source no longer prints math.value in explain mode.
-const m = APP.match(/if\(mode === "explain"\)\{([\s\S]*?)\n\s*\} else \{/);
-check("explain mode branch exists in source", !!m);
-const srcHasReveal = m ? /\bmath\.value\b/.test(m[1]) : true;
-check("explain mode does not print the final value", !srcHasReveal);
+// --- Help Me Understand must not reveal the answer: EXECUTE the actual
+// guidance text the student sees (mathExplain is the pure function the
+// app calls) and verify the final value never appears in it.
+const math60 = app.solveMath("Solve 12 * (4 + 1)");
+check("solveMath finds 12 * (4 + 1) = 60", math60 && math60.value === 60);
+const explainText = app.mathExplain(math60);
+check("mathExplain executes and returns the guidance text", typeof explainText === "string" && explainText.includes("How to solve"));
+check("executed explain text does NOT contain the answer 60", !/\b60\b/.test(explainText));
+const explain48 = app.mathExplain(app.solveMath("Solve 12 * 4"));
+check("executed explain text does NOT contain the answer 48", !/\b48\b/.test(explain48));
 
-// --- book flow ---
+// --- book flow: wrong-match display must not poison an author correction ---
 check("stripAuthorPrefix: 'the author Gordon Korman' -> 'Gordon Korman'",
   app.stripAuthorPrefix("the author Gordon Korman") === "Gordon Korman");
-state.memory.lastTitle = "Restart";
+// simulate the real workflow: student asks for "Restart" (query handler
+// records the requested title), a WRONG book "Re Start" is displayed
+// (rememberResult is called with the matched title)...
+state.memory.lastTitle = "Restart"; // set by the query handler
+app.rememberResult("Re Start", "Someone Else", "book");
 check("isAuthorOnly detects 'the author Gordon Korman'", app.isAuthorOnly("the author Gordon Korman"));
 const resolved = app.resolveQuery("the author Gordon Korman");
-check("author correction keeps the REQUESTED title 'Restart'",
+check("author correction after wrong-match display keeps REQUESTED 'Restart'",
   resolved.titleQ === "Restart" && /Korman/i.test(resolved.authorQ));
 // numeric candidate selection
 state.memory.lastCandidates = [
@@ -116,6 +121,17 @@ check("numeric reply '2' picks candidate 2", picked.titleQ === "Re Start");
 // --- Aesop fragment cannot become a completed answer without the passage ---
 const noPassage = app.passageEvidence("1. What was the text mostly about?", "1. What was the text mostly about?");
 check("no evidence found when only the question exists", noPassage === null);
+// answer-choice-only input can never produce evidence
+const choicesOnly = app.passageEvidence(
+  "1. What is the main idea?",
+  "1. What is the main idea?\nA) The fox giving up\nB) The fox reaching the grapes");
+check("answer-choice-only input yields no evidence", choicesOnly === null);
+// OCR cleanup preserves math symbols and digit tokens (regression)
+const alg = app.cleanOcrText("Simplify 3x4 and x+z if x = 2 < 3");
+check("cleanOcrText keeps '3x4', 'x+z', '<'",
+  /3x4/.test(alg.text) && /x\+z/.test(alg.text) && /</.test(alg.text));
+check("app.js contains no Tesseract call (pretrained OCR disabled)",
+  !/Tesseract\.recognize/.test(APP));
 
 console.log("\n" + passed + " passed, " + failed + " failed, 0 skipped (node)");
 process.exit(failed ? 1 : 0);

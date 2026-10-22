@@ -48,7 +48,7 @@
   function cleanOcrText(raw){
     if(!raw) return { text: "", junkRatio: 0, removed: [] };
     var lines = raw.replace(/\r/g,"\n").split("\n"), out = [], junkFound = 0, totalTokens = 0, removed = [];
-    var KEEP_SYMBOLS = /^[+\-=\u00d7\u00f7.,:;?!()\u201c\u201d\u2019'\"#%]+$/;
+    var KEEP_SYMBOLS = /^[+\-*/=<>\u00d7\u00f7.,:;?!()\u201c\u201d\u2019'\"#%]+$/;
     for(var i=0;i<lines.length;i++){
       var line = lines[i];
       // strip box-drawing / table border runs only
@@ -59,10 +59,14 @@
         totalTokens++;
         var hasLetter = /[A-Za-z]/.test(w);
         var hasDigit = /[0-9]/.test(w);
-        // pure-symbol junk with no letters/digits and not a math/word symbol (e.g. "=<)", "|", "m]" fragments)
-        if(!hasLetter && !hasDigit && !KEEP_SYMBOLS.test(w)){ junkFound++; removed.push(w); continue; }
-        // vowel-less consonant runs (e.g. "xlwq") are almost certainly misreads
-        if(hasLetter && w.length >= 3 && !/[aeiouyAEIOUY]/.test(w)){ junkFound++; removed.push(w); continue; }
+        // pure-symbol junk: tokens with no letters/digits are kept only
+        // when short (single operators, <=, ->, punctuation) — longer
+        // symbol runs ("=<)", "|]", box fragments) are misreads
+        if(!hasLetter && !hasDigit && (!KEEP_SYMBOLS.test(w) || w.length > 2)){ junkFound++; removed.push(w); continue; }
+        // vowel-less ALPHABETIC runs (e.g. "xlwq") are almost certainly
+        // misreads — but tokens containing digits (3x4, x2) or symbols are
+        // legitimate math and are always kept
+        if(/^[A-Za-z]{3,}$/.test(w) && !/[aeiouyAEIOUY]/.test(w)){ junkFound++; removed.push(w); continue; }
         kept.push(w);
       }
       var joined = kept.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
@@ -110,30 +114,13 @@
   }
   function runOCR(file, statusEl, textEl, prevEl){
     if(prevEl){ try{ prevEl.src = URL.createObjectURL(file); prevEl.style.display = "block"; }catch(e){} }
-    if(statusEl) statusEl.textContent = "Improving photo & reading text…";
-    if(typeof Tesseract === "undefined"){ if(statusEl) statusEl.textContent = "Photo added. Type the questions."; return; }
-    if(statusEl) statusEl.textContent = "Reading text (Tesseract pretrained OCR — the project's from-scratch OCR is not trained yet)…";
-    preprocessImage(file).then(function(imgForOcr){
-      return Tesseract.recognize(imgForOcr, "eng", { logger: function(m){
-        if(statusEl && m && m.status === "recognizing text" && m.progress) statusEl.textContent = "Reading text… "+Math.round(m.progress*100)+"%";
-      }});
-    }).then(function(result){
-      var raw = (result && result.data && result.data.text) ? result.data.text : "";
-      var cleaned = cleanOcrText(raw.replace(/\s+\n/g,"\n").replace(/[ \t]+/g," "));
-      var text = cleaned.text;
-      if(text && text.length > 5 && !isGibberish(text)){
-        if(textEl) textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
-        if(statusEl){
-          var msg = (cleaned.junkRatio > 0.10
-            ? "Read the photo, but some words look off — please double-check the text below."
-            : "Text ready — fix any mistakes, then continue.");
-          if(cleaned.removed && cleaned.removed.length){
-            msg += " Removed as unreadable: " + cleaned.removed.join(" ");
-          }
-          statusEl.textContent = msg;
-        }
-      } else if(statusEl) statusEl.textContent = "Could not read that photo clearly. Type the questions below.";
-    }).catch(function(){ if(statusEl) statusEl.textContent = "Could not read photo. Type the questions below."; });
+    if(statusEl) statusEl.textContent = "Photo added. Type the questions below.";
+    // This compliant build does NOT use pretrained OCR (Tesseract) — the
+    // project's rules forbid pretrained model weights, including OCR.
+    // The photo is shown for reference; the student types the text.
+    // The from-scratch OCR (runs/ocr_v1) reads synthetic images only so
+    // far, so it is not wired into the UI yet.
+    return;
   }
   function onHwFile(input){ var f = input.files && input.files[0]; if(!f) return; runOCR(f, $("hw-ocr"), $("hw-text"), $("hw-prev")); }
   $("hw-cam").onchange = function(){ onHwFile(this); };
@@ -207,20 +194,42 @@
       return { expr: best, value: Math.round(val*10000)/10000 };
     }catch(e){ return null; }
   }
+  /* ---- Help Me Understand for math: pure function returning the exact
+     guidance text. Must NOT contain the final answer value. ---- */
+  function mathExplain(math){
+    return [
+      "How to solve " + math.expr + ":",
+      "1. Write the problem out: " + math.expr,
+      "2. Order of operations: brackets, then \u00d7 \u00f7, then + \u2212",
+      "3. Work it out step by step, then check it against the question.",
+      "(Want the final number? Switch mode to Give me the answer or Answer + Explanation.)"
+    ].join("\n");
+  }
   /* ---- find evidence in the worksheet passage (not in questions,
-     answer choices, or instructions). Keyword overlap only PROPOSES a
-     sentence; it never proves an answer. ---- */
+     answer choices, or instructions). Exclusion happens LINE-BY-LINE
+     before sentence splitting, so a choice can never masquerade as
+     evidence. Keyword overlap only PROPOSES a sentence; it never
+     proves an answer. ---- */
   function passageEvidence(qText, allText){
     var skip = {"what":1,"which":1,"about":1,"this":1,"that":1,"from":1,"your":1,"best":1,"describes":1,"mainly":1,"mostly":1,"story":1,"text":1,"passage":1,"question":1,"answer":1,"sentence":1};
     var qWords = qText.toLowerCase().replace(/[^a-z ]/g," ").split(/\s+/)
       .filter(function(w){ return w.length > 3 && !skip[w]; });
-    var sents = allText.replace(/\s+/g," ").split(/(?=[A-Z][^.!?]{20,}[.!?])/g);
+    if(!qWords.length) return null;
+    // 1. line-level exclusion FIRST (question lines, choices, instructions)
+    var lines = allText.split(/\n+/), keptLines = [];
+    for(var li=0; li<lines.length; li++){
+      var line = lines[li].replace(/^\s+|\s+$/g,"");
+      if(!line) continue;
+      if(/^(?:question\s*)?\d{1,2}[\).:\-]\s/i.test(line)) continue;   // question lines
+      if(/^[A-Da-d]\s*[).:]\s+\S/.test(line)) continue;                 // answer choices
+      if(/^(read|answer|choose|circle|write|complete|use|name|fill)\b/i.test(line)) continue; // instructions
+      keptLines.push(line);
+    }
+    // 2. sentence split within surviving lines only
+    var sents = keptLines.join(" ").split(/(?=[A-Z][^.!?]{20,}[.!?])/g);
     var best = null, bestScore = 0;
     for(var i=0;i<sents.length;i++){
       var s = sents[i]; if(s.length < 25 || s.length > 400) continue;
-      if(/^\s*(?:question\s*)?\d{1,2}[\).:\-]/i.test(s)) continue;      // question lines
-      if(/^\s*[A-Da-d]\s*[).:]\s+\S/.test(s)) continue;                  // answer choices
-      if(/^(read|answer|choose|circle|write|complete|use|name|fill)\b/i.test(s)) continue; // instructions
       var l = s.toLowerCase(), score = 0;
       for(var j=0;j<qWords.length;j++) if(l.indexOf(qWords[j]) !== -1) score++;
       if(score > bestScore){ bestScore = score; best = s; }
@@ -255,12 +264,10 @@
     }
     if(task === "math" && math){
       if(mode === "explain"){
-        // Help Me Understand: guide without revealing the final answer
-        lines.push("How to solve " + math.expr + ":");
-        lines.push("1. Write the problem out: " + math.expr);
-        lines.push("2. Order of operations: brackets, then \u00d7 \u00f7, then + \u2212");
-        lines.push("3. Work it out step by step, then check it against the question.");
-        lines.push("(Want the final number? Switch mode to Give me the answer or Answer + Explanation.)");
+        // Help Me Understand: guide without revealing the final answer.
+        // mathExplain() is a pure function so tests can execute the
+        // EXACT text the student sees and verify the value never appears.
+        return mathExplain(math);
       } else {
         lines.push("Answer: " + math.value);
         if(mode !== "answer") lines.push("(" + math.expr + " = " + math.value + " \u2014 computed with the arithmetic checker, not guessed)");
@@ -463,11 +470,11 @@
     inp.onchange = function(){
       var f = inp.files && inp.files[0]; if(!f) return;
       if(attachMenu) attachMenu.classList.remove("on");
-      if(f.type.indexOf("image/") === 0 && typeof Tesseract !== "undefined"){
-        Tesseract.recognize(f, "eng").then(function(result){
-          var text = (result && result.data && result.data.text) ? result.data.text.trim() : "";
-          if(text){ attachText = text.slice(0, 2000); var input = $("learn-in"); if(input && !input.value) input.value = text.slice(0, 80).replace(/\n/g," "); }
-        }).catch(function(){});
+      // images are not auto-read in this build: pretrained OCR is not
+      // allowed and the from-scratch OCR is not trained for photos yet.
+      if(f.type.indexOf("image/") === 0){
+        var input = $("learn-in");
+        if(input && !input.value) input.value = "";
       }
     };
   }
@@ -563,10 +570,11 @@
     return { titleQ: titleQ, authorQ: authorQ, kind: kind, note: "" };
   }
   function rememberResult(title, author, kind){
-    // keep the REQUESTED title in memory.lastTitle: an author correction
-    // like "the author Gordon Korman" must re-search the book the student
-    // asked about, not whatever was last displayed.
-    if(title){ memory.lastTitle = title; memory.lastTopic = title; }
+    // Does NOT touch memory.lastTitle: that is the REQUESTED title (set
+    // when the student asks), and an author correction like "the author
+    // Gordon Korman" must re-search the requested book, not whatever was
+    // last displayed. Matched titles go to lastDisplayed and history.
+    if(title){ memory.lastTopic = title; memory.lastDisplayed = title; }
     if(author) memory.lastAuthor = author;
     if(kind) memory.lastKind = kind;
     memory.history.push({ title: title, author: author, kind: kind, t: Date.now() });

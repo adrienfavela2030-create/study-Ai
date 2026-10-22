@@ -20,11 +20,11 @@ class CharTokenizer:
     digits, punctuation, quotes and math symbols always survive an
     encode/decode round-trip even when the corpus itself lacks them.
 
-    Unknown handling: characters outside the vocabulary are silently
-    dropped by encode(). Checkpoint compatibility: the full vocabulary
-    is saved in every checkpoint (meta.tokenizer_vocab), and a mismatch
-    between the saved vocabulary and the model's embedding size is an
-    error, never a silent remap.
+    Unknown handling: characters outside the vocabulary make encode()
+    RAISE ValueError — they are never silently dropped. Checkpoint
+    compatibility: the full vocabulary is saved in every checkpoint
+    (meta.tokenizer_vocab), and a mismatch between the saved vocabulary
+    and the model's embedding size is an error, never a silent remap.
     """
 
     def __init__(self, vocab: list[str]):
@@ -41,8 +41,14 @@ class CharTokenizer:
                     seen[ch] = None
         vocab = sorted(seen.keys())
         if include_ascii:
+            # fixed documented character set: printable ASCII, newline,
+            # and common typographic/math characters below — NOT learned
+            # content, so ×, ÷, curly quotes and dashes always survive.
             ascii_chars = [chr(i) for i in range(32, 127)] + ["\n"]
-            for ch in ascii_chars:
+            math_chars = ["\u00d7", "\u00f7", "\u2212", "\u00b0",
+                         "\u2018", "\u2019", "\u201c", "\u201d",
+                         "\u2013", "\u2014", "\u00bd"]
+            for ch in ascii_chars + math_chars:
                 if ch not in seen:
                     seen[ch] = None
             vocab = sorted(seen.keys())
@@ -50,7 +56,15 @@ class CharTokenizer:
         return cls(vocab)
 
     def encode(self, text: str) -> list[int]:
-        return [self.stoi[ch] for ch in text if ch in self.stoi]
+        """Encode text; any character outside the vocabulary raises
+        ValueError (never silently dropped)."""
+        unknown = [ch for ch in text if ch not in self.stoi]
+        if unknown:
+            raise ValueError(
+                "characters not in tokenizer vocabulary (cannot silently "
+                f"drop them): {sorted(set(unknown))!r}"
+            )
+        return [self.stoi[ch] for ch in text]
 
     def decode(self, ids: list[int]) -> str:
         return "".join(

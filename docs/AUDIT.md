@@ -70,19 +70,24 @@ letters/digits (like `=<)`) and vowel-less consonant runs, **reports
 every removed token** to the student, and keeps operators and question
 numbers. Regression tests cover `12 + 4 = ?` and `#1` survival.
 
-## Finding 6 — OCR uses pretrained Tesseract weights
+## Finding 6 — OCR used pretrained Tesseract weights
 
-**Where:** `docs/index.html` loads `tesseract.min.js` from a CDN.
+**Where:** `docs/index.html` loaded `tesseract.min.js` from a CDN.
 
-**Diagnosis:** The browser OCR path depends on Tesseract's pretrained
-recognition weights. This violates the project's from-scratch
-requirement for image reading and was not disclosed in the UI. The
-compliant from-scratch OCR (`study/ocr.py`, CNN+BiLSTM+CTC) has never
-been trained (PyTorch/GPU unavailable in this environment) and its LSTM
-input size did not match the conv output (64 vs 128 — fixed, now
-computed from the conv stack and covered by a shape test). The UI now
-labels photo-reading as "Tesseract (pretrained OCR)" while the from-scratch
-pipeline remains untrained; manual text entry remains the compliant path.
+**Diagnosis:** The browser OCR path depended on Tesseract's pretrained
+recognition weights. Disclosure alone did not satisfy the project's
+no-pretrained rule, so the Tesseract path has now been REMOVED from the
+compliant build: the photo is shown for reference and the student types
+the text (an automated test asserts no `Tesseract.recognize` call
+remains in `docs/app.js`). The from-scratch OCR (`study/ocr.py`,
+CNN+BiLSTM+CTC on a synthetic bitmap font) has since been TRAINED in
+this environment (PyTorch CPU was installable) and reaches 1.000
+character accuracy on held-out synthetic images (`runs/ocr_v1/`) —
+but it has never been tested on photographs, so it is not wired into
+the UI and real-photo capability is explicitly not claimed. A
+shape bug in its LSTM input size (hardcoded 64 vs the conv output's
+128 for 11px-tall images) was fixed; the correct value is documented
+and covered by a shape test.
 
 ## Finding 7 — Book identification overwrote the requested title
 
@@ -125,7 +130,17 @@ The "stupidity" had three separate causes: (1) the app never used the
 trained model at all — it is a rule engine, (2) the trained model was
 trained on the wrong objective with an unchecked backward bug, and
 (3) the OCR/cleanup layer corrupted its own input. All three are now
-fixed and covered by executed tests. The remaining, honestly-reported
-limitation: the from-scratch language model is still far too small to
-generate English, so the app's answers remain deterministic rules +
-retrieval — by design, since inventing fluency is not allowed.
+fixed and covered by executed tests. Two further defects found in
+review and fixed: the trainer could silently remap token meanings
+across stages (checkpoints now carry their exact vocabularies, which
+the trainer reuses), and the "resume" claim was weaker than verified
+(resume is now proven by identical parameters after identical
+updates, with optimizer state saved).
+
+Remaining, honestly reported: the models trained in these experiments
+are far too small and the corpora far too tiny to generate English
+(fluency was not achieved in these experiments); the app therefore
+still answers with deterministic rules + retrieval and never presents
+rule output as model generation. Serving the trained model in the
+application remains unimplemented by design until a model worth
+serving exists.
