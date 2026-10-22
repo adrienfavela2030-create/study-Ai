@@ -9,22 +9,33 @@ schoolwork, learning, note-taking, and educational research.
 - No invented sources, quotations, URLs, or claims of accuracy.
 - Webpage text is untrusted data — never treated as instructions.
 
+> The deployed browser app (`docs/`) uses Tesseract.js for photo reading — a
+> pretrained OCR dependency. The UI discloses this, and the from-scratch OCR
+> pipeline (`study/ocr.py`) is the intended replacement. Manual text entry is
+> always available and is the fully compliant path.
+
 ## What actually has been trained (honest status)
 
 | Stage | Status |
 |---|---|
-| NumPy smoke experiment (tiny decoder-only Transformer, ~11k params) | **Completed** — real checkpoint in `runs/numpy_smoke_v1/` |
-| English pretraining at scale | Not started (needs PyTorch + larger corpus) |
-| Knowledge training | Not started |
-| Educational supervised training | Not started |
-| OCR training | Not started (code ready in `study/ocr.py`) |
+| NumPy smoke experiment v2 (tiny Transformer, ~13k params) | **Completed and verified** — `runs/numpy_smoke_v2/` |
+| English pretraining (PyTorch, 357k params) | **Ran for real** — `runs/english_v1/`, val loss 4.44 → 1.34 |
+| Knowledge training | **Ran for real** — `runs/knowledge_v1/`, but val regressed (overfit) |
+| Educational supervised training | **Ran for real** — `runs/supervised_v1/`, masked loss 4.4 → 0.26; still cannot generate English (verbatim samples in the status report) |
+| OCR training | **Ran for real** — `runs/ocr_v1/`, 1.000 char accuracy on held-out synthetic images (not tested on photos) |
 | Web search + grounding | Code complete; needs `BRAVE_SEARCH_API_KEY` to run live |
 
-The smoke experiment trained a randomly initialized Transformer for 120 steps
-with hand-derived backprop, verified against finite differences (worst
-relative error ~1e-7), and reduced held-out validation loss. It proves the
-pipeline works. It does **not** prove English proficiency — the eval report
-says so explicitly.
+The corrected smoke experiment proves the pipeline: next-token alignment,
+gradient check with randomized non-unit layernorm scales (worst error ~1e-7),
+deterministic checkpoint reload, and resumable training. The scale-up runs
+are real but tiny (a few KB of original text), so **none of these models
+can generate English** — the app's answers are deterministic rules +
+retrieval, and nothing claims otherwise. See `docs/AUDIT.md` and
+`docs/STATUS_REPORT.md` for the full diagnosis and honest numbers.
+
+The first smoke run was defective (double-shifted targets) and is archived
+with a correction notice in `runs/archive/numpy_smoke_v1/` — kept as a
+record, never used.
 
 ## Quick start
 
@@ -35,7 +46,8 @@ pip install -r requirements.txt
 
 python -m study.inspect_hardware         # hardware + honest feasibility notes
 python -m study.numpy_smoke              # the verified from-scratch experiment
-python -m unittest discover -s tests -v  # 35 tests (torch tests skip without torch)
+python -m unittest discover -s tests -v  # 42 tests (0 skipped with torch installed)
+node tests/test_app.js                  # 25 tests for the deployed browser app
 python -m uvicorn study.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -91,8 +103,11 @@ study/
   inspect_hardware.py
   data/             original training data + provenance/license records
 web/                three-tool website (mobile-friendly)
-tests/              24 automated tests
+tests/              42 Python tests + 25 Node tests for the deployed app
 runs/               REAL checkpoints only — never fabricated
+runs/archive/       defective v1 smoke run + correction notice (kept, unused)
+docs/               the deployed browser app (index.html + app.js)
+tests/              42 Python tests + 25 Node tests for the deployed app
 ```
 
 ## Capabilities and limitations (real)
@@ -101,9 +116,11 @@ runs/               REAL checkpoints only — never fabricated
 checking, faithful verbatim note extraction, live web search with inspected
 sources, citation and quotation validation, honest "I don't know" behavior.
 
-**Cannot do yet:** answer school questions with the language model (too small),
-model-generated summaries, image reading (OCR untrained), semantic
-fact-checking beyond lexical support checks.
+**Cannot do yet:** answer school questions with the language model (too small
+— see the verbatim samples in `docs/STATUS_REPORT.md`), model-generated
+summaries, from-scratch OCR on real photographs (synthetic images only).
+Semantic fact-checking is lexical: it flags unsupported wording but cannot
+prove truth.
 
 **Never does:** invent quotations, sources, or URLs; treat snippets as
 inspected pages; train on visited webpages automatically; expose secrets to
