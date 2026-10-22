@@ -3,170 +3,182 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
-<meta name="theme-color" content="#0c0d10"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
 <title>Study AI</title>
 <style>
-:root{--bg:#0c0d10;--card:#15171c;--card2:#1a1d24;--line:#2a2e38;--text:#f0f1f3;--muted:#9aa0ab;--dim:#6b7280;--btn:#f0f1f3;--btn-text:#0c0d10;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--r:14px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+:root{--bg:#0a0a0a;--bg2:#111113;--card:#161618;--card2:#1c1c1f;--line:#2a2a2e;--text:#fafafa;--muted:#a1a1aa;--dim:#71717a;--white:#fafafa;--black:#0a0a0a;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--r:16px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--spring:cubic-bezier(.22,1,.36,1)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.45}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.45}
 body{overflow:hidden}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
 #app{max-width:440px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
 #main{flex:1;min-height:0;overflow:hidden;position:relative}
-.screen{display:none;flex-direction:column;height:100%;min-height:0}
-.screen.active{display:flex}
-.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 18px 28px}
-.home-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;padding:28px 20px}
-.logo-row{display:flex;align-items:center;gap:14px;margin-bottom:36px}
-.logo{width:48px;height:48px;border-radius:12px;background:var(--btn);color:var(--btn-text);font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center}
-.logo-row h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-0.03em}
-.logo-row p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.screen{display:none;flex-direction:column;height:100%;min-height:0;opacity:0}
+.screen.on{display:flex;animation:in .35s var(--spring) forwards}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 18px 32px}
+.home{flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px 22px}
+.mark{width:40px;height:40px;border-radius:12px;background:var(--white);color:var(--black);font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.home h1{margin:0 0 6px;font-size:28px;font-weight:650;letter-spacing:-.04em}
+.home .sub{margin:0 0 28px;color:var(--muted);font-size:15px}
 .tools{display:flex;flex-direction:column;gap:10px}
-.tool{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 16px}
-.tool strong{display:block;font-size:16px;font-weight:650;margin-bottom:4px}
-.tool span{font-size:13px;color:var(--muted);line-height:1.4}
-.tool:active{background:var(--card2)}
-.bottom{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);min-height:56px;background:var(--bg);flex-shrink:0}
-.bottom button{color:var(--dim);font-size:10px;font-weight:600;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px}
-.bottom button.on{color:var(--text)}
-.bottom svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.bar{padding:16px 18px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
-.bar h2{margin:0;font-size:18px;font-weight:700}
-.bar p{margin:4px 0 0;font-size:13px;color:var(--muted)}
-.label{font-size:11px;font-weight:650;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
-.hint{font-size:13px;color:var(--muted);margin:0 0 12px}
-.input,.area{display:block;width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:16px;margin:0 0 12px;outline:none;-webkit-appearance:none;color:var(--text)}
-.input:focus,.area:focus{border-color:var(--muted)}
-.area{min-height:100px;resize:vertical}
-.primary{display:block;width:100%;background:var(--btn);color:var(--btn-text);border-radius:12px;padding:14px;font-size:16px;font-weight:650;margin-top:8px}
-.secondary{display:block;width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:16px;font-weight:650;margin-top:8px}
+.tool{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;transition:transform .15s var(--spring),background .15s}
+.tool:active{transform:scale(.98);background:var(--card2)}
+.tool-ic{width:36px;height:36px;border-radius:10px;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tool-ic svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tool strong{display:block;font-size:15px;font-weight:600;margin-bottom:2px}
+.tool span{font-size:12px;color:var(--muted);line-height:1.35}
+.nav{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);min-height:58px;background:var(--bg);flex-shrink:0}
+.nav button{color:var(--dim);font-size:10px;font-weight:600;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .15s}
+.nav button.on{color:var(--text)}
+.nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.top{padding:16px 18px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
+.top h2{margin:0;font-size:18px;font-weight:650;letter-spacing:-.02em}
+.top p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.lbl{font-size:11px;font-weight:650;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
+.hint{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.4}
+.inp,.area{display:block;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;font-size:16px;margin:0 0 12px;outline:none;-webkit-appearance:none;color:var(--text);transition:border-color .15s}
+.inp:focus,.area:focus{border-color:var(--muted)}
+.area{min-height:110px;resize:vertical}
+.btn{display:block;width:100%;background:var(--white);color:var(--black);border-radius:14px;padding:14px;font-size:15px;font-weight:650;margin-top:8px;transition:transform .12s var(--spring)}
+.btn:active{transform:scale(.98)}
+.btn2{display:block;width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:15px;font-weight:650;margin-top:8px}
 .row{display:flex;gap:8px}.row>*{flex:1;margin-top:0}
-.uprow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.up{position:relative;background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:20px 12px;text-align:center;font-size:13px;font-weight:600}
+.up2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.up{position:relative;background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:22px 12px;text-align:center;font-size:13px;font-weight:600}
 .up small{display:block;color:var(--dim);font-weight:400;margin-top:4px;font-size:11px}
-.up input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
-.preview{max-width:100%;max-height:140px;border-radius:10px;margin:0 0 12px;display:none;object-fit:cover}
-.msg{font-size:13px;color:var(--muted);margin:0 0 12px}
-.msg.ok{color:var(--ok)}.msg.warn{color:var(--warn)}.msg.bad{color:var(--bad)}
+.up input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
+.pv{max-width:100%;max-height:140px;border-radius:12px;margin:0 0 12px;display:none;object-fit:cover}
+.st{font-size:13px;color:var(--muted);margin:0 0 12px}
+.st.ok{color:var(--ok)}.st.warn{color:var(--warn)}.st.bad{color:var(--bad)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.chip{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600}
-.chip.on{background:var(--btn);color:var(--btn-text);border-color:var(--btn)}
+.chip{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;transition:all .15s}
+.chip.on{background:var(--white);color:var(--black);border-color:var(--white)}
 .dots{display:flex;gap:6px;padding:0 18px 10px;flex-shrink:0}
-.dot{flex:1;height:3px;border-radius:2px;background:var(--line)}.dot.on{background:var(--text)}.dot.done{background:var(--dim)}
-.q{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}
-.q input{margin-top:3px;width:18px;height:18px}.q label{flex:1;font-size:13px}
-.out{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-top:12px;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.5;display:none}
-.out.show{display:block}
-.out .t{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:10px}
-.chat{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
-.bubble{max-width:90%;font-size:15px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
-.bubble.me{align-self:flex-end;background:var(--btn);color:var(--btn-text);border-radius:16px 16px 4px 16px;padding:12px 14px}
-.bubble.ai{align-self:flex-start;padding:4px 2px;color:var(--text)}
-.bubble .live{color:var(--muted);font-size:13px}
-.book{display:flex;gap:12px;margin:6px 0}
-.book img{width:56px;height:84px;object-fit:cover;border-radius:6px;background:var(--card2);flex-shrink:0}
+.dot{flex:1;height:3px;border-radius:2px;background:var(--line);transition:background .25s}
+.dot.on{background:var(--text)}.dot.done{background:var(--dim)}
+.qi{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;animation:fade .3s var(--spring) both}
+.qi input{margin-top:3px;width:18px;height:18px}.qi label{flex:1;font-size:13px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-top:12px;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.55;display:none}
+.panel.show{display:block;animation:fade .35s var(--spring)}
+.panel .t{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:10px}
+.chat{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.b{max-width:88%;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word;animation:fade .35s var(--spring)}
+.b.me{align-self:flex-end;background:var(--white);color:var(--black);border-radius:18px 18px 4px 18px;padding:12px 14px}
+.b.ai{align-self:flex-start;padding:2px 2px;color:var(--text)}
+.b .live{color:var(--muted);font-size:13px;animation:pulse 1.2s ease infinite}
+.bk{display:flex;gap:12px;margin:4px 0}
+.bk img{width:56px;height:84px;object-fit:cover;border-radius:8px;background:var(--card2);flex-shrink:0}
 .composer{flex-shrink:0;padding:10px 12px 12px;border-top:1px solid var(--line);background:var(--bg)}
-.box{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:6px 8px 6px 14px}
-.box input{flex:1;background:transparent;border:0;outline:none;padding:8px 0;font-size:16px;min-width:0;-webkit-appearance:none}
-.send{width:36px;height:36px;border-radius:50%;background:var(--btn);color:var(--btn-text);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.box{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:6px 8px 6px 16px;transition:border-color .15s}
+.box:focus-within{border-color:var(--muted)}
+.box input{flex:1;background:transparent;border:0;outline:none;padding:10px 0;font-size:16px;min-width:0;-webkit-appearance:none}
+.send{width:36px;height:36px;border-radius:50%;background:var(--white);color:var(--black);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .12s var(--spring)}
+.send:active{transform:scale(.92)}
 .send svg{width:16px;height:16px}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:100}
-.overlay.open{display:flex}
-.sheet{width:100%;max-width:440px;background:var(--card2);border-radius:20px 20px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));max-height:75vh;overflow-y:auto}
-.sheet h3{margin:0 0 6px;font-size:18px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.ov.open{display:flex;animation:in .25s var(--spring)}
+.sheet{width:100%;max-width:440px;background:var(--bg2);border-radius:20px 20px 0 0;padding:22px 18px calc(24px + env(safe-area-inset-bottom));max-height:75vh;overflow-y:auto}
+.sheet h3{margin:0 0 6px;font-size:18px;font-weight:650}
 .sheet p{margin:0 0 14px;font-size:13px;color:var(--muted)}
-.sheet-item{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:8px;font-weight:600;font-size:15px}
-.sheet-item small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.si{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:8px;font-weight:600;font-size:15px}
+.si small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 <div id="app">
 <div id="main">
-<div class="screen active" id="s-home">
-<div class="home-wrap">
-<div class="logo-row"><div class="logo">S</div><div><h1>Study AI</h1><p>Homework · Notes · Research</p></div></div>
+<div class="screen on" id="pg-home">
+<div class="home">
+<div class="mark">S</div>
+<h1>Study AI</h1>
+<p class="sub">Homework, notes, and research</p>
 <div class="tools">
-<button type="button" class="tool" data-go="homework"><strong>Homework</strong><span>Photo → questions → help</span></button>
-<button type="button" class="tool" data-go="notes"><strong>Notes</strong><span>Photo, link, or text → study notes</span></button>
-<button type="button" class="tool" data-go="research"><strong>Research</strong><span>Any subject or book</span></button>
+<button type="button" class="tool" id="go-hw"><div class="tool-ic"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><div><strong>Homework</strong><span>Photo → pick questions → get help</span></div></button>
+<button type="button" class="tool" id="go-notes"><div class="tool-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div><div><strong>Notes</strong><span>Turn a page into study notes</span></div></button>
+<button type="button" class="tool" id="go-research"><div class="tool-ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><div><strong>Research</strong><span>Any subject or book</span></div></button>
 </div></div></div>
-<div class="screen" id="s-homework">
-<div class="bar"><h2>Homework</h2><p id="hw-label">Step 1 · Add the page</p></div>
+<div class="screen" id="pg-hw">
+<div class="top"><h2>Homework</h2><p id="hw-lbl">Step 1 · Add the page</p></div>
 <div class="dots" id="hw-dots"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
 <div class="scroll">
 <div id="hw1">
-<p class="hint">Clear photo or type the questions.</p>
-<div class="uprow">
+<p class="hint">Take a clear photo, or type the questions.</p>
+<div class="up2">
 <label class="up">Camera<small>Take photo</small><input type="file" id="hw-cam" accept="image/*" capture="environment"/></label>
-<label class="up">Upload<small>From photos</small><input type="file" id="hw-file" accept="image/*"/></label>
+<label class="up">Upload<small>Library</small><input type="file" id="hw-file" accept="image/*"/></label>
 </div>
-<img id="hw-img" class="preview" alt=""/>
-<p class="msg" id="hw-status"></p>
-<p class="label">Text</p>
-<textarea class="area" id="hw-text" placeholder="Type or edit worksheet text"></textarea>
-<button type="button" class="primary" id="hw-go1">Continue</button>
+<img id="hw-img" class="pv" alt=""/>
+<p class="st" id="hw-st"></p>
+<p class="lbl">Text</p>
+<textarea class="area" id="hw-text" placeholder="Type or edit here"></textarea>
+<button type="button" class="btn" id="hw1-next">Continue</button>
 </div>
 <div id="hw2" style="display:none">
-<p class="hint">Check questions to help with.</p>
+<p class="hint">Select the questions you need.</p>
 <div id="hw-qs"></div>
 <div class="row" style="margin-top:12px">
-<button type="button" class="secondary" id="hw-back2">Back</button>
-<button type="button" class="primary" id="hw-go2">Continue</button>
+<button type="button" class="btn2" id="hw2-back">Back</button>
+<button type="button" class="btn" id="hw2-next">Continue</button>
 </div></div>
 <div id="hw3" style="display:none">
-<p class="label">Subject</p>
-<button type="button" class="secondary" id="hw-subj-btn">Choose subject</button>
-<p class="msg" id="hw-subj-msg">Tap to pick</p>
-<p class="label">Help style</p>
+<p class="lbl">Subject</p>
+<button type="button" class="btn2" id="hw-subj">Choose subject</button>
+<p class="st" id="hw-subj-st">Tap to choose</p>
+<p class="lbl">Help style</p>
 <div class="chips" id="hw-modes">
-<button type="button" class="chip on" data-m="explain">Explain</button>
-<button type="button" class="chip" data-m="answer">Answer</button>
-<button type="button" class="chip" data-m="both">Both</button>
+<button type="button" class="chip on" data-v="explain">Explain</button>
+<button type="button" class="chip" data-v="answer">Answer</button>
+<button type="button" class="chip" data-v="both">Both</button>
 </div>
-<p class="label">Writing level</p>
-<div class="chips" id="hw-styles">
-<button type="button" class="chip on" data-s="grade7">7th grade+</button>
-<button type="button" class="chip" data-s="high">High school</button>
-<button type="button" class="chip" data-s="normal">Everyday</button>
+<p class="lbl">Writing level</p>
+<div class="chips" id="hw-lvl">
+<button type="button" class="chip on" data-v="grade7">7th grade+</button>
+<button type="button" class="chip" data-v="high">High school</button>
+<button type="button" class="chip" data-v="normal">Everyday</button>
 </div>
-<div class="q" style="margin-bottom:12px">
+<div class="qi" style="margin-bottom:12px">
 <input type="checkbox" id="hw-essay"/>
 <label for="hw-essay"><strong>Essay mode</strong></label>
 </div>
-<p class="label">Optional note</p>
-<input class="input" id="hw-note" type="text" placeholder="e.g. only question 2"/>
+<p class="lbl">Optional note</p>
+<input class="inp" id="hw-note" type="text" placeholder="e.g. only #2"/>
 <div class="row">
-<button type="button" class="secondary" id="hw-back3">Back</button>
-<button type="button" class="primary" id="hw-go3">Get help</button>
+<button type="button" class="btn2" id="hw3-back">Back</button>
+<button type="button" class="btn" id="hw3-go">Get help</button>
 </div></div>
 <div id="hw4" style="display:none">
-<div class="out show" id="hw-out"></div>
-<button type="button" class="secondary" id="hw-reset">Start over</button>
+<div class="panel show" id="hw-out"></div>
+<button type="button" class="btn2" id="hw-reset">Start over</button>
 </div></div></div>
-<div class="screen" id="s-notes">
-<div class="bar"><h2>Notes</h2><p>Photo, link, or paste</p></div>
+<div class="screen" id="pg-notes">
+<div class="top"><h2>Notes</h2><p>Photo, link, or paste</p></div>
 <div class="scroll">
-<div class="uprow">
-<label class="up">Camera<small>Page photo</small><input type="file" id="n-cam" accept="image/*" capture="environment"/></label>
-<label class="up">Upload<small>From photos</small><input type="file" id="n-file" accept="image/*"/></label>
+<div class="up2">
+<label class="up">Camera<small>Page</small><input type="file" id="n-cam" accept="image/*" capture="environment"/></label>
+<label class="up">Upload<small>Library</small><input type="file" id="n-file" accept="image/*"/></label>
 </div>
-<img id="n-img" class="preview" alt=""/>
-<p class="msg" id="n-status"></p>
-<input class="input" id="n-url" type="url" placeholder="Or paste a link"/>
-<button type="button" class="secondary" id="n-fetch">Load link</button>
+<img id="n-img" class="pv" alt=""/>
+<p class="st" id="n-st"></p>
+<input class="inp" id="n-url" type="url" placeholder="Or paste a link"/>
+<button type="button" class="btn2" id="n-fetch">Load link</button>
 <textarea class="area" id="n-text" placeholder="Or paste text"></textarea>
-<p class="label">Length</p>
+<p class="lbl">Length</p>
 <div class="chips" id="n-modes">
-<button type="button" class="chip on" data-s="short">Short</button>
-<button type="button" class="chip" data-s="medium">Medium</button>
-<button type="button" class="chip" data-s="long">Long</button>
+<button type="button" class="chip on" data-v="short">Short</button>
+<button type="button" class="chip" data-v="medium">Medium</button>
+<button type="button" class="chip" data-v="long">Long</button>
 </div>
-<button type="button" class="primary" id="n-go">Make notes</button>
-<div class="out" id="n-out"></div>
+<button type="button" class="btn" id="n-go">Make notes</button>
+<div class="panel" id="n-out"></div>
 </div></div>
-<div class="screen" id="s-research">
-<div class="bar"><h2>Research</h2><p>Any subject or book</p></div>
+<div class="screen" id="pg-research">
+<div class="top"><h2>Research</h2><p>Any subject or book</p></div>
 <div class="chat" id="chat"></div>
 <div class="composer">
 <div class="box">
@@ -174,21 +186,21 @@ button{cursor:pointer;border:0;background:none}
 <button type="button" class="send" id="r-send" aria-label="Send"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
 </div></div></div>
 </div>
-<nav class="bottom">
-<button type="button" class="on" data-go="home" id="nav-home"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Home</button>
-<button type="button" data-go="homework" id="nav-homework"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Homework</button>
-<button type="button" data-go="notes" id="nav-notes"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Notes</button>
-<button type="button" data-go="research" id="nav-research"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Research</button>
+<nav class="nav">
+<button type="button" class="on" id="nav-home"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Home</button>
+<button type="button" id="nav-hw"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Homework</button>
+<button type="button" id="nav-notes"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Notes</button>
+<button type="button" id="nav-research"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Research</button>
 </nav>
 </div>
-<div class="overlay" id="subj-overlay">
+<div class="ov" id="subj-ov">
 <div class="sheet">
 <h3>Choose subject</h3>
-<p>Pick what matches. Change if wrong.</p>
+<p>Pick the best match. Change anytime.</p>
 <div id="subj-list"></div>
-<button type="button" class="secondary" id="subj-close">Cancel</button>
+<button type="button" class="btn2" id="subj-x">Cancel</button>
 </div></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
