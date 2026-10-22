@@ -115,7 +115,7 @@ textarea.field{min-height:100px;resize:vertical}
 <div class="scroll">
 <div class="steps" id="hw-steps"><div class="step on"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
 <div id="hs1">
-<p class="hint">Photo hard to read? Tap Aesop list, or type only the clean titles (delete gibberish).</p>
+<p class="hint">Photo hard to read? Delete the gibberish. Keep only clean titles, or tap Aesop list.</p>
 <div class="up2">
 <label class="up">Camera<small>Take photo</small><input type="file" id="hw-cam" accept="image/*" capture="environment" onchange="hwPhoto(this)"/></label>
 <label class="up">Upload<small>Photos / files</small><input type="file" id="hw-file" accept="image/*,.pdf,.txt" onchange="hwPhoto(this)"/></label>
@@ -124,7 +124,7 @@ textarea.field{min-height:100px;resize:vertical}
 <img id="hw-img" class="preview" alt=""/>
 <p class="status" id="hw-st"></p>
 <p class="lbl">Text</p>
-<textarea class="field" id="hw-text" placeholder="Type or edit questions"></textarea>
+<textarea class="field" id="hw-text" placeholder="Type only clean titles or questions"></textarea>
 <button type="button" class="btn" onclick="hwNext1()">Continue</button>
 </div>
 <div id="hs2" style="display:none">
@@ -177,12 +177,13 @@ textarea.field{min-height:100px;resize:vertical}
 <div class="overlay" id="ov" onclick="if(event.target===this)this.classList.remove('open')">
 <div class="sheet">
 <h3>Subject</h3>
-<p>Pick the best match.</p>
+<p>English, Math, Science, Social Studies, History, and more.</p>
 <div id="subj-list"></div>
 <button type="button" class="btn2" onclick="document.getElementById('ov').classList.remove('open')">Cancel</button>
 </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="app-v19.js"></script>
 <script src="app-v20.js"></script>
 </body>
 </html>
