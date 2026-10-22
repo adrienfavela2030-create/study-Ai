@@ -114,7 +114,7 @@ def build_model(vocab_size: int):
     import torch.nn as nn
 
     class OcrNet(nn.Module):
-        def __init__(self, vocab):
+        def __init__(self, vocab, input_size=128):
             super().__init__()
             self.cnn = nn.Sequential(
                 nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(),
@@ -122,13 +122,19 @@ def build_model(vocab_size: int):
                 nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
                 nn.MaxPool2d((2, 1)),  # keep width
             )
-            self.lstm = nn.LSTM(64, 128, bidirectional=True, batch_first=True)
+            # after two pools the height is H/4; for 11px images that is 2,
+            # so features per time-step = 64 * 2 = 128.
+            self.lstm = nn.LSTM(input_size, 128, bidirectional=True, batch_first=True)
             self.fc = nn.Linear(256, vocab + 1)  # +1 CTC blank
 
         def forward(self, x):  # x: (B, 1, H, W)
-            f = self.cnn(x)                      # (B, C, H/4, W)
-            f = f.permute(0, 3, 1, 2)            # (B, W, C, H/4)
-            f = f.flatten(2)                     # (B, W, C*H/4)
+            f = self.cnn(x)                      # (B, C, H', W) where H' = H/4
+            f = f.permute(0, 3, 1, 2)            # (B, W, C, H')
+            f = f.flatten(2)                     # (B, W, C*H')
+            # C*H' = 64 * (H/4). The synthetic images are 11px tall, so
+            # H' = 2 and the LSTM input must be 128 — a previous version
+            # hardcoded 64, which would crash on real data. The input
+            # size is computed from the conv stack instead of guessed.
             out, _ = self.lstm(f)                # (B, W, 256)
             return self.fc(out)                 # (B, W, V+1)
 

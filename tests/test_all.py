@@ -2,11 +2,15 @@
 
 Run: python -m unittest discover -s tests -v
 
-Tests cover: tokenizer, question detection and selection, math checking,
-notes extraction, citation grounding, OCR data synthesis, the NumPy
-model's forward/backward/gradcheck/checkpoint, and the training smoke
-run's honest reporting. PyTorch-dependent tests are skipped when torch
-is not installed (and are labeled as skipped, never passed silently).
+Covers: tokenizer round-trips (spec cases), question detection and
+selection, deterministic math checking (including the modes where the
+answer must NOT be revealed), notes extraction, citation grounding, OCR
+data synthesis, the NumPy model (forward, gradcheck with randomized
+non-unit gamma, next-token alignment, training, deterministic reload,
+resume), and honest reporting of the corrected smoke run.
+
+PyTorch-dependent tests are skipped when torch is not installed and are
+labeled as skipped, never silently passed.
 """
 
 from __future__ import annotations
@@ -28,16 +32,31 @@ from study.model import (  # noqa: E402
     Adam, TinyNumPyTransformer, TransformerConfig, load_checkpoint, save_checkpoint,
 )
 from study import ocr  # noqa: E402
+from study import numpy_smoke  # noqa: E402
 
 
 class TokenizerTests(unittest.TestCase):
+    SPEC_CASES = [
+        "The student's book", "Hello, world!", "3.14159", "July 4, 1776",
+        "12 + 7 = 19", "x - y", 'She said "stop"', "line one\nline two",
+        "Gordon Korman", "Restart: a novel", "Don't stop",
+        "Aesop's Fables: The Fox and the Grapes",
+    ]
+
     def test_roundtrip(self):
         tok = CharTokenizer.train_from_texts(["hello world"])
-        text = "hello world"
-        self.assertEqual(tok.decode(tok.encode(text)), text)
+        self.assertEqual(tok.decode(tok.encode("hello world")), "hello world")
+
+    def test_spec_roundtrip_cases(self):
+        """Tokenizer must preserve apostrophes, digits, math symbols,
+        quotes, newlines, names, and titles (spec Part 2 Stage A)."""
+        for text in self.SPEC_CASES:
+            with self.subTest(text=text):
+                tok = CharTokenizer.train_from_texts(["the student reads"])
+                self.assertEqual(tok.decode(tok.encode(text)), text)
 
     def test_vocab_from_corpus_only(self):
-        tok = CharTokenizer.train_from_texts(["abc"])
+        tok = CharTokenizer.train_from_texts(["abc"], include_ascii=False)
         self.assertEqual(tok.vocab_size(), 4)  # a, b, c, <|eot|>
 
     def test_splits_disjoint_and_before_training(self):
@@ -57,6 +76,14 @@ class HomeworkTests(unittest.TestCase):
         qs = school.detect_questions(self.PAGE)
         self.assertEqual([q.number for q in qs], ["1", "2", "3", "4"])
 
+    def test_selection_numbers_preserved(self):
+        """Selected questions 2, 7, 10 must keep those exact numbers."""
+        page = "\n".join(f"{n}. Question text {n}" for n in [2, 7, 10])
+        qs = school.detect_questions(page)
+        available = [q.number for q in qs]
+        self.assertEqual(available, ["2", "7", "10"])
+        self.assertEqual(school.parse_selection("all", available), ["2", "7", "10"])
+
     def test_selection_numbers(self):
         available = [q.number for q in school.detect_questions(self.PAGE)]
         self.assertEqual(school.parse_selection("1, 3", available), ["1", "3"])
@@ -68,6 +95,12 @@ class HomeworkTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["result"], 48)
 
+    def test_math_brackets_order_of_operations(self):
+        """12 × (4 + 1) must return 60, not a left-to-right 61."""
+        result = school.check_math("12 * (4 + 1)")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["result"], 60)
+
     def test_math_rejects_non_arithmetic(self):
         result = school.check_math("__import__('os').system('ls')")
         self.assertFalse(result["ok"])
@@ -77,6 +110,14 @@ class HomeworkTests(unittest.TestCase):
         res = school.answer_question(qs[0], "give_me_the_answer")
         self.assertEqual(res.model_status, "answered_by_deterministic_math")
         self.assertIn("48", res.model_answer)
+
+    def test_help_me_understand_does_not_reveal_answer(self):
+        """Spec: Help Me Understand must not automatically reveal the
+        final answer (Part 3 / advisor regression case)."""
+        qs = school.detect_questions("2. Solve 12 * 4 = ?")
+        res = school.answer_question(qs[0], "help_me_understand")
+        self.assertEqual(res.model_status, "guided_without_answer")
+        self.assertNotIn("48", res.model_answer)
 
     def test_reading_question_does_not_invent_answers(self):
         qs = school.detect_questions("3. What is the main idea of the passage?")
@@ -138,9 +179,8 @@ class GroundingTests(unittest.TestCase):
             "The rover found cheese sandwiches on Mars [1].", [self.SRC])
         self.assertFalse(result["grounded"])
 
-    def test_research_summary_counts_only_inspected(self):
-        rec = websearch.research.__name__  # sanity that module loaded
-        self.assertTrue(rec)
+    def test_websearch_module_loads(self):
+        self.assertTrue(callable(websearch.research))
 
 
 class WebsearchTests(unittest.TestCase):
@@ -195,11 +235,35 @@ class NumPyModelTests(unittest.TestCase):
         logits = model.forward(ids)
         self.assertEqual(logits.shape, (1, ids.shape[1], model.cfg.vocab_size))
 
-    def test_gradcheck(self):
+    def test_gradcheck_randomized_gamma(self):
+        """Gradient check must pass with randomized non-unit layernorm
+        scales — the condition that exposed a real backward bug that was
+        invisible at initialization (gamma=1)."""
         model, ids, targets = self._model_and_batch()
-        report = model.gradcheck(ids, targets, samples_per_tensor=2)
+        report = model.gradcheck(ids, targets, samples_per_tensor=3, randomize_gamma=True)
         worst = max(report.values())
         self.assertLess(worst, 1e-3, f"gradcheck failed: {report}")
+
+    def test_next_token_alignment(self):
+        """A model trained on 'ababab' must predict the alternation from
+        sequence contexts — proves the loss targets are aligned (the
+        double-shift regression)."""
+        tok = CharTokenizer.train_from_texts(["the student reads the book"])
+        cfg = TransformerConfig(vocab_size=tok.vocab_size(), d_model=24,
+                                n_heads=3, n_layers=1, context_length=64)
+        seq = [tok.stoi[c] for c in "ababab"]
+        x, y = np.array([seq[:-1]]), np.array([seq[1:]])
+        model = TinyNumPyTransformer(cfg, seed=1)
+        opt = Adam(model.params, lr=0.05)
+        for _ in range(3000):
+            cache: dict = {}
+            model.loss_and_logits(x, y, cache)
+            grads = model.backward(cache, y)
+            opt.step(model.params, grads)
+        after_ab = model.forward(np.array([[tok.stoi[c] for c in "ab"]]))[0, -1].argmax()
+        after_aba = model.forward(np.array([[tok.stoi[c] for c in "aba"]]))[0, -1].argmax()
+        self.assertEqual(tok.itos[after_ab], "a")
+        self.assertEqual(tok.itos[after_aba], "b")
 
     def test_training_reduces_loss(self):
         model, ids, targets = self._model_and_batch()
@@ -212,7 +276,9 @@ class NumPyModelTests(unittest.TestCase):
             opt.step(model.params, grads)
         self.assertLess(loss, loss0)
 
-    def test_checkpoint_roundtrip_identical(self):
+    def test_checkpoint_reload_deterministic(self):
+        """Reload must reproduce the SAME loss on the SAME input, not just
+        'a loss' (the old check was weaker than claimed)."""
         model, ids, targets = self._model_and_batch()
         opt = Adam(model.params, lr=0.05)
         cache: dict = {}
@@ -223,12 +289,24 @@ class NumPyModelTests(unittest.TestCase):
         loss1, _ = model.loss_and_logits(ids, targets)
         path = str(ROOT / "runs" / "_test_ckpt.json")
         (ROOT / "runs").mkdir(exist_ok=True)
-        save_checkpoint(path, model, {"stage": "test"})
+        tok = CharTokenizer.train_from_texts(["the student reads the book"])
+        save_checkpoint(path, model, {"stage": "test", "tokenizer_vocab": tok.itos})
         m2, meta = load_checkpoint(path)
         loss2, _ = m2.loss_and_logits(ids, targets)
         self.assertEqual(meta["stage"], "test")
-        self.assertAlmostEqual(loss1, loss2, places=10)
+        self.assertEqual(loss1, loss2)
         (ROOT / "runs" / "_test_ckpt.json").unlink()
+
+    def test_checkpoint_vocab_mismatch_is_an_error(self):
+        """A checkpoint whose saved vocab size disagrees with the model's
+        must fail loudly, never silently remap token meanings."""
+        model, ids, targets = self._model_and_batch()
+        path = str(ROOT / "runs" / "_test_ckpt2.json")
+        (ROOT / "runs").mkdir(exist_ok=True)
+        save_checkpoint(path, model, {"stage": "test", "tokenizer_vocab": ["a", "b"]})
+        with self.assertRaises(ValueError):
+            load_checkpoint(path)
+        (ROOT / "runs" / "_test_ckpt2.json").unlink()
 
     def test_param_count_matches_arrays(self):
         model, ids, targets = self._model_and_batch()
@@ -237,28 +315,40 @@ class NumPyModelTests(unittest.TestCase):
 
 
 class SmokeRunReportTests(unittest.TestCase):
-    """The saved smoke-run artifacts must exist and be honest."""
+    """The corrected smoke run's artifacts must exist and be honest."""
 
     def test_manifest_records_only_real_runs(self):
         path = ROOT / "runs" / "manifest.json"
         self.assertTrue(path.exists(), "run python -m study.numpy_smoke first")
         manifest = json.loads(path.read_text())
-        self.assertEqual(manifest["numpy_smoke_v1"]["status"], "completed")
+        self.assertEqual(manifest["numpy_smoke_v2"]["status"], "completed")
+        self.assertEqual(manifest["numpy_smoke_v1"]["status"], "archived_defective")
         self.assertEqual(manifest["english_full_pretraining"]["status"], "not_started")
 
     def test_eval_report_honest(self):
-        path = ROOT / "runs" / "numpy_smoke_v1" / "eval_report.json"
+        path = ROOT / "runs" / "numpy_smoke_v2" / "eval_report.json"
         self.assertTrue(path.exists())
         report = json.loads(path.read_text())
         self.assertLess(report["val_loss_after"], report["val_loss_before"])
-        self.assertIn("does NOT establish", report["honest_assessment"])
+        self.assertTrue(report["next_token_alignment_check"])
+        self.assertTrue(report["reload_determinism"])
+        self.assertTrue(report["resume_training_ok"])
+        self.assertTrue(report["tokenizer_report"]["ok"])
+        # the report must explicitly deny English fluency
+        self.assertIn("NOT", report["honest_assessment"])
+
+    def test_correction_notice_exists_for_v1(self):
+        path = ROOT / "runs" / "archive" / "numpy_smoke_v1" / "CORRECTION.md"
+        self.assertTrue(path.exists())
+        self.assertIn("double", path.read_text().lower())
 
     def test_checkpoint_file_real(self):
-        path = ROOT / "runs" / "numpy_smoke_v1" / "checkpoint.json"
+        path = ROOT / "runs" / "numpy_smoke_v2" / "checkpoint.json"
         self.assertTrue(path.exists())
         payload = json.loads(path.read_text())
         self.assertIn("params", payload)
         self.assertGreater(len(payload["params"]), 0)
+        self.assertIn("tokenizer_vocab", payload["meta"])
 
 
 class SftDataTests(unittest.TestCase):
@@ -324,6 +414,8 @@ class OcrTrainingTests(unittest.TestCase):
         x = torch.tensor(batch, dtype=torch.float32)
         logits = model(x)
         self.assertEqual(logits.shape[0], 4)
+        # LSTM input size must match the conv output (64 channels * H/4)
+        self.assertEqual(model.lstm.input_size, 64 * (images[0].shape[0] // 4))
 
 
 if __name__ == "__main__":

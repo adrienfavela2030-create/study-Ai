@@ -138,11 +138,21 @@ def answer_question(question: Question, mode: str, source_text: str = "", model_
         expr = extract_arithmetic(question.text) or re.sub(r"[^0-9+\-*/(). ]", "", question.text)
         res.math_check = check_math(expr)
         if res.math_check["ok"]:
-            res.model_status = "answered_by_deterministic_math"
-            res.model_answer = (
-                f"The answer is {res.math_check['result']}. "
-                "(Verified by the built-in arithmetic checker, not the language model.)"
-            )
+            if mode == "help_me_understand":
+                # Do NOT reveal the final answer in this mode.
+                res.model_status = "guided_without_answer"
+                res.model_answer = (
+                    "Set up the problem and follow order of operations: brackets "
+                    "first, then multiplication/division, then addition/subtraction. "
+                    "Work it out — if you want the final answer, switch to "
+                    "Answer + Explain or Give Me the Answer."
+                )
+            else:
+                res.model_status = "answered_by_deterministic_math"
+                res.model_answer = (
+                    f"The answer is {res.math_check['result']}. "
+                    "(Verified by the built-in arithmetic checker, not the language model.)"
+                )
             return res
     if model_ready:
         res.model_status = "model_answer"

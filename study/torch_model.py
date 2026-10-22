@@ -81,6 +81,11 @@ class TransformerLM(nn.Module):
             nn.init.normal_(m.weight, 0.0, 0.02)
 
     def forward(self, ids, targets=None):
+        """Next-token loss. `targets[b, t]` is the token that follows
+        `ids[b, t]` (callers pre-shift). No extra shifting here — a
+        previous version shifted twice and trained the model to predict
+        two tokens ahead.
+        """
         T = ids.shape[1]
         assert T <= self.context_length
         pos = torch.arange(T, device=ids.device)
@@ -91,7 +96,7 @@ class TransformerLM(nn.Module):
         loss = None
         if targets is not None:
             loss = nn.functional.cross_entropy(
-                logits[:, :-1].reshape(-1, logits.size(-1)),
-                targets[:, 1:].reshape(-1),
+                logits.reshape(-1, logits.size(-1)),
+                targets.reshape(-1),
             )
         return logits, loss

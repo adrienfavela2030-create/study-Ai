@@ -105,13 +105,18 @@ class TinyNumPyTransformer:
 
     @staticmethod
     def _ln_backward(dout, x, xhat, gamma):
-        """Backward through y = ((x-mu)/sigma) * gamma + beta."""
+        """Backward through y = ((x-mu)/sigma) * gamma + beta.
+
+        Correct for arbitrary (non-unit) gamma: the per-channel scaling
+        must be applied BEFORE the mean terms.
+        """
         dgamma = (dout * xhat).sum(axis=tuple(range(dout.ndim - 1)))
         dbeta = dout.sum(axis=tuple(range(dout.ndim - 1)))
         sigma = np.sqrt(x.var(-1, keepdims=True) + 1e-5)
-        m1 = dout.mean(-1, keepdims=True)
-        m2 = (dout * xhat).mean(-1, keepdims=True)
-        dx = (gamma * (dout - m1 - xhat * m2)) / sigma
+        g = dout * gamma
+        m1 = g.mean(-1, keepdims=True)
+        m2 = (g * xhat).mean(-1, keepdims=True)
+        dx = (g - m1 - xhat * m2) / sigma
         return dx, dgamma, dbeta
 
     @staticmethod
@@ -170,10 +175,19 @@ class TinyNumPyTransformer:
 
     # ------------------------------------------------------------------
     def loss_and_logits(self, ids: np.ndarray, targets: np.ndarray, cache: dict | None = None):
+        """Next-token loss.
+
+        Convention: `targets[b, t]` is the token that follows
+        `ids[b, t]` in the original text (callers pre-shift), so
+        logits at position t are scored against targets at position t
+        directly — no additional shifting happens here. A previous
+        version shifted targets a second time and trained the model to
+        predict two tokens ahead; that defect is now covered by tests.
+        """
         logits = self.forward(ids, cache)
         B, T, V = logits.shape
-        sh = logits[:, :-1].reshape(-1, V)
-        tgt = targets[:, 1:].reshape(-1)
+        sh = logits.reshape(-1, V)
+        tgt = targets.reshape(-1)
         probs = self._softmax(sh)
         loss = float(-np.log(probs[np.arange(len(tgt)), tgt] + 1e-12).mean())
         return loss, logits
@@ -185,19 +199,18 @@ class TinyNumPyTransformer:
         logits = cache["logits"]
         B, T, V = logits.shape
         d, h, hd = cfg.d_model, cfg.n_heads, cfg.d_model // cfg.n_heads
-        n = B * (T - 1)
+        n = B * T
 
         grads = {k: np.zeros_like(v) for k, v in p.items()}
 
-        # Cross-entropy + softmax backward (average over predictions).
-        dlogits = np.exp(logits[:, :-1] - logits[:, :-1].max(-1, keepdims=True))
+        # Cross-entropy + softmax backward (average over all positions).
+        dlogits = np.exp(logits - logits.max(-1, keepdims=True))
         dlogits /= dlogits.sum(-1, keepdims=True)
         dlogits = dlogits.reshape(-1, V)
-        tgt = targets[:, 1:].reshape(-1)
+        tgt = targets.reshape(-1)
         dlogits[np.arange(n), tgt] -= 1.0
         dlogits /= n
-        dlogits = dlogits.reshape(B, T - 1, V)
-        dlogits = np.concatenate([dlogits, np.zeros((B, 1, V))], axis=1)
+        dlogits = dlogits.reshape(B, T, V)
 
         xf = cache["xf"]
         grads["lm_head"] = xf.reshape(-1, d).T @ dlogits.reshape(-1, V)
@@ -271,13 +284,30 @@ class TinyNumPyTransformer:
         return grads
 
     # ------------------------------------------------------------------
-    def gradcheck(self, ids: np.ndarray, targets: np.ndarray, eps: float = 1e-5, samples_per_tensor: int = 3) -> dict:
-        """Finite-difference check of the analytical backward pass."""
+    def gradcheck(self, ids: np.ndarray, targets: np.ndarray, eps: float = 1e-6, samples_per_tensor: int = 3, randomize_gamma: bool = True) -> dict:
+        """Finite-difference check of the analytical backward pass.
+
+        With `randomize_gamma=True`, layernorm scales are set to random
+        non-unit values first. A previous version checked only the
+        initial state where every gamma equals 1, which hid an
+        incorrect layer-norm gradient that only appears after training
+        begins to move gamma.
+        """
+        if randomize_gamma:
+            rng0 = np.random.default_rng(99)
+            for name, arr in self.params.items():
+                if "gamma" in name:
+                    arr[:] = rng0.uniform(0.2, 3.0, size=arr.shape)
         cache: dict = {}
         self.loss_and_logits(ids, targets, cache)
         analytic = self.backward(cache, targets)
         rng = np.random.default_rng(1)
         report: dict[str, float] = {}
+        # Absolute floor: gradients that are genuinely tiny cannot be
+        # checked reliably by finite differences (the loss difference
+        # falls below float64 noise), so treat sub-floor entries as
+        # exact instead of dividing by a near-zero denominator.
+        atol = 1e-6
         for name, arr in self.params.items():
             worst = 0.0
             for _ in range(samples_per_tensor):
@@ -292,7 +322,9 @@ class TinyNumPyTransformer:
                 arr[idx] = old
                 num = (lp - lm) / (2 * eps)
                 ana = analytic[name][idx]
-                denom = max(abs(num), abs(ana), 1e-8)
+                if abs(num) < atol and abs(ana) < atol:
+                    continue
+                denom = max(abs(num), abs(ana), atol)
                 worst = max(worst, abs(num - ana) / denom)
             report[name] = worst
         return report
@@ -337,4 +369,17 @@ def load_checkpoint(path: str) -> tuple[TinyNumPyTransformer, dict]:
     cfg = TransformerConfig.from_dict(payload["config"])
     model = TinyNumPyTransformer(cfg, seed=0)
     model.params = {k: np.array(v) for k, v in payload["params"].items()}
-    return model, payload["meta"]
+    meta = payload["meta"]
+    # Vocabulary compatibility: if the checkpoint carries its tokenizer
+    # vocabulary, a mismatch with the model's embedding size is an error,
+    # never a silent remap (which would change what every token means).
+    saved_vocab = meta.get("tokenizer_vocab")
+    if saved_vocab is not None:
+        if len(saved_vocab) != cfg.vocab_size:
+            raise ValueError(
+                f"checkpoint vocab size {len(saved_vocab)} does not match model "
+                f"vocab size {cfg.vocab_size} — retrain or use the matching tokenizer"
+            )
+        if model.params["tok_emb"].shape[0] != len(saved_vocab):
+            raise ValueError("checkpoint embedding table does not match saved vocab")
+    return model, meta

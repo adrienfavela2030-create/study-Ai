@@ -1,9 +1,13 @@
 {
   "numpy_smoke_v1": {
+    "status": "archived_defective",
+    "note": "Trained with double-shifted targets; see runs/archive/numpy_smoke_v1/CORRECTION.md. Do not use."
+  },
+  "numpy_smoke_v2": {
     "status": "completed",
-    "when": "2026-10-22T02:28:31.964581+00:00",
-    "checkpoint": "runs/numpy_smoke_v1/checkpoint.json",
-    "note": "Small from-scratch experiment. Real training, real checkpoint."
+    "when": "2026-10-22T03:40:36.491327+00:00",
+    "checkpoint": "runs/numpy_smoke_v2/checkpoint.json",
+    "note": "Corrected experiment: verified alignment, non-unit-gamma gradcheck, deterministic reload, resume. Real training, real checkpoint. NOT fluent English \u2014 see eval_report.json."
   },
   "english_full_pretraining": {
     "status": "not_started",

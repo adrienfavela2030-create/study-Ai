@@ -13,8 +13,18 @@ from dataclasses import dataclass
 class CharTokenizer:
     """A character tokenizer whose vocabulary is derived from a corpus.
 
-    The vocabulary contains exactly the characters that appear in the
-    supplied texts plus a special end-of-text token.
+    The vocabulary contains the characters that appear in the supplied
+    texts, plus (by default) all printable ASCII characters and a
+    newline, plus a special end-of-text token. The ASCII coverage is a
+    fixed, documented character set — not learned content — so that
+    digits, punctuation, quotes and math symbols always survive an
+    encode/decode round-trip even when the corpus itself lacks them.
+
+    Unknown handling: characters outside the vocabulary are silently
+    dropped by encode(). Checkpoint compatibility: the full vocabulary
+    is saved in every checkpoint (meta.tokenizer_vocab), and a mismatch
+    between the saved vocabulary and the model's embedding size is an
+    error, never a silent remap.
     """
 
     def __init__(self, vocab: list[str]):
@@ -23,13 +33,20 @@ class CharTokenizer:
         self.eot_index = self.stoi["<|eot|>"]
 
     @classmethod
-    def train_from_texts(cls, texts: list[str]) -> "CharTokenizer":
+    def train_from_texts(cls, texts: list[str], include_ascii: bool = True) -> "CharTokenizer":
         seen: dict[str, None] = {}
         for text in texts:
             for ch in text:
                 if ch not in seen:
                     seen[ch] = None
-        vocab = sorted(seen.keys()) + ["<|eot|>"]
+        vocab = sorted(seen.keys())
+        if include_ascii:
+            ascii_chars = [chr(i) for i in range(32, 127)] + ["\n"]
+            for ch in ascii_chars:
+                if ch not in seen:
+                    seen[ch] = None
+            vocab = sorted(seen.keys())
+        vocab = vocab + ["<|eot|>"]
         return cls(vocab)
 
     def encode(self, text: str) -> list[int]:

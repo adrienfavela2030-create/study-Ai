@@ -41,34 +41,34 @@
     $("hw-s3").style.display = n===3 ? "block" : "none";
     $("hw-s4").style.display = n===4 ? "block" : "none";
   }
-  /* ---- OCR text cleanup: remove junk tokens so question detection works ---- */
+  /* ---- OCR text cleanup: REMOVE ONLY CLEAR JUNK, never operators or
+     question numbers. Removed tokens are reported so the student can
+     check them. A previous version deleted '+', '#1' and '-' tokens and
+     silently corrupted math questions. ---- */
   function cleanOcrText(raw){
-    if(!raw) return "";
-    var lines = raw.replace(/\r/g,"\n").split("\n"), out = [], junkFound = 0, totalTokens = 0;
+    if(!raw) return { text: "", junkRatio: 0, removed: [] };
+    var lines = raw.replace(/\r/g,"\n").split("\n"), out = [], junkFound = 0, totalTokens = 0, removed = [];
+    var KEEP_SYMBOLS = /^[+\-=\u00d7\u00f7.,:;?!()\u201c\u201d\u2019'\"#%]+$/;
     for(var i=0;i<lines.length;i++){
       var line = lines[i];
-      // strip box-drawing / table border runs and stray symbols
-      line = line.replace(/[\u2500-\u257F\u2550-\u256C]+/g," ").replace(/[=<>|]+/g," ");
+      // strip box-drawing / table border runs only
+      line = line.replace(/[\u2500-\u257F\u2550-\u256C]+/g," ");
       var tokens = line.split(/\s+/), kept = [];
       for(var j=0;j<tokens.length;j++){
         var w = tokens[j]; if(!w) continue;
         totalTokens++;
-        // question numbers like "1." "2)" "Q3" stay
-        var isQNum = /^(?:(?:question\s*)?\d{1,2}|[Qq]\d{1,2})[\).:\-]?$/.test(w);
-        if(isQNum){ kept.push(w); continue; }
         var hasLetter = /[A-Za-z]/.test(w);
-        // symbol-only junk (e.g. "=<)", "|", "-")
-        if(!hasLetter && !/^\d+(?:[\).:,]\d*)?$/.test(w)){ junkFound++; continue; }
-        // lone letters that are not words (OCR noise like "k", "he" fragments)
-        if(/^[A-Za-z]$/.test(w) && !/^(a|A|I)$/.test(w)){ junkFound++; continue; }
-        // words with letters but no vowel and no digits (e.g. "xlw")
-        if(hasLetter && w.length >= 3 && !/[aeiouyAEIOUY]/.test(w)){ junkFound++; continue; }
+        var hasDigit = /[0-9]/.test(w);
+        // pure-symbol junk with no letters/digits and not a math/word symbol (e.g. "=<)", "|", "m]" fragments)
+        if(!hasLetter && !hasDigit && !KEEP_SYMBOLS.test(w)){ junkFound++; removed.push(w); continue; }
+        // vowel-less consonant runs (e.g. "xlwq") are almost certainly misreads
+        if(hasLetter && w.length >= 3 && !/[aeiouyAEIOUY]/.test(w)){ junkFound++; removed.push(w); continue; }
         kept.push(w);
       }
       var joined = kept.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/g,"");
       if(joined) out.push(joined);
     }
-    return { text: out.join("\n"), junkRatio: totalTokens ? junkFound/totalTokens : 1 };
+    return { text: out.join("\n"), junkRatio: totalTokens ? junkFound/totalTokens : 1, removed: removed.slice(0,12) };
   }
   function isGibberish(text){
     if(!text || text.length < 8) return true;
@@ -112,6 +112,7 @@
     if(prevEl){ try{ prevEl.src = URL.createObjectURL(file); prevEl.style.display = "block"; }catch(e){} }
     if(statusEl) statusEl.textContent = "Improving photo & reading text…";
     if(typeof Tesseract === "undefined"){ if(statusEl) statusEl.textContent = "Photo added. Type the questions."; return; }
+    if(statusEl) statusEl.textContent = "Reading text (Tesseract pretrained OCR — the project's from-scratch OCR is not trained yet)…";
     preprocessImage(file).then(function(imgForOcr){
       return Tesseract.recognize(imgForOcr, "eng", { logger: function(m){
         if(statusEl && m && m.status === "recognizing text" && m.progress) statusEl.textContent = "Reading text… "+Math.round(m.progress*100)+"%";
@@ -123,9 +124,13 @@
       if(text && text.length > 5 && !isGibberish(text)){
         if(textEl) textEl.value = textEl.value ? (textEl.value + "\n\n" + text) : text;
         if(statusEl){
-          statusEl.textContent = cleaned.junkRatio > 0.15
+          var msg = (cleaned.junkRatio > 0.10
             ? "Read the photo, but some words look off — please double-check the text below."
-            : "Text ready — fix any mistakes, then continue.";
+            : "Text ready — fix any mistakes, then continue.");
+          if(cleaned.removed && cleaned.removed.length){
+            msg += " Removed as unreadable: " + cleaned.removed.join(" ");
+          }
+          statusEl.textContent = msg;
         }
       } else if(statusEl) statusEl.textContent = "Could not read that photo clearly. Type the questions below.";
     }).catch(function(){ if(statusEl) statusEl.textContent = "Could not read photo. Type the questions below."; });
@@ -181,16 +186,30 @@
   /* ---- safe arithmetic: evaluate + - * / ( ) ---- */
   function solveMath(text){
     var expr = text.replace(/[\u00d7\x]/g,"*").replace(/\u00f7/g,"/").replace(/[^0-9+\-*/(). ]/g," ");
-    var m = expr.match(/[-]?\d+(?:\.\d+)?(?:\s*[+\-*/]\s*[-]?\d+(?:\.\d+)?)+/);
-    if(!m) return null;
-    var src = m[0].replace(/\s+/g," ").trim();
+    // prefer the longest arithmetic run that contains at least one operator
+    // (this captures bracketed expressions like 12 * (4 + 1))
+    var runs = expr.match(/[-(\d][\d\s+\-*/().]*/g) || [];
+    var best = null;
+    for(var i=0;i<runs.length;i++){
+      var r = runs[i].replace(/\s+/g," ").trim();
+      if(!/[+\-*/]/.test(r)) continue;
+      if(!/^[-(]?\d/.test(r) && !/^\(/.test(r)) continue;
+      // balanced brackets check
+      var open = 0, ok = true;
+      for(var c=0;c<r.length;c++){ if(r[c]==="(") open++; if(r[c]===")") open--; if(open<0){ ok=false; break; } }
+      if(!ok || open !== 0) continue;
+      if(best === null || r.length > best.length) best = r;
+    }
+    if(best === null) return null;
     try{
-      var val = Function("'use strict';return ("+src+")")();
+      var val = Function("'use strict';return ("+best+")")();
       if(typeof val !== "number" || !isFinite(val)) return null;
-      return { expr: src, value: Math.round(val*10000)/10000 };
+      return { expr: best, value: Math.round(val*10000)/10000 };
     }catch(e){ return null; }
   }
-  /* ---- find evidence in the worksheet passage (not in questions) ---- */
+  /* ---- find evidence in the worksheet passage (not in questions,
+     answer choices, or instructions). Keyword overlap only PROPOSES a
+     sentence; it never proves an answer. ---- */
   function passageEvidence(qText, allText){
     var skip = {"what":1,"which":1,"about":1,"this":1,"that":1,"from":1,"your":1,"best":1,"describes":1,"mainly":1,"mostly":1,"story":1,"text":1,"passage":1,"question":1,"answer":1,"sentence":1};
     var qWords = qText.toLowerCase().replace(/[^a-z ]/g," ").split(/\s+/)
@@ -199,7 +218,9 @@
     var best = null, bestScore = 0;
     for(var i=0;i<sents.length;i++){
       var s = sents[i]; if(s.length < 25 || s.length > 400) continue;
-      if(/^\s*(?:question\s*)?\d{1,2}[\).:\-]/i.test(s)) continue;
+      if(/^\s*(?:question\s*)?\d{1,2}[\).:\-]/i.test(s)) continue;      // question lines
+      if(/^\s*[A-Da-d]\s*[).:]\s+\S/.test(s)) continue;                  // answer choices
+      if(/^(read|answer|choose|circle|write|complete|use|name|fill)\b/i.test(s)) continue; // instructions
       var l = s.toLowerCase(), score = 0;
       for(var j=0;j<qWords.length;j++) if(l.indexOf(qWords[j]) !== -1) score++;
       if(score > bestScore){ bestScore = score; best = s; }
@@ -234,11 +255,12 @@
     }
     if(task === "math" && math){
       if(mode === "explain"){
+        // Help Me Understand: guide without revealing the final answer
         lines.push("How to solve " + math.expr + ":");
         lines.push("1. Write the problem out: " + math.expr);
         lines.push("2. Order of operations: brackets, then \u00d7 \u00f7, then + \u2212");
-        lines.push("3. Work it out \u2014 you should get " + math.value);
-        lines.push("4. Check: reread and confirm it answers what was asked.");
+        lines.push("3. Work it out step by step, then check it against the question.");
+        lines.push("(Want the final number? Switch mode to Give me the answer or Answer + Explanation.)");
       } else {
         lines.push("Answer: " + math.value);
         if(mode !== "answer") lines.push("(" + math.expr + " = " + math.value + " \u2014 computed with the arithmetic checker, not guessed)");
@@ -386,7 +408,7 @@
   var liveEl = null;
   var outputMode = "normal";
   var attachText = "";
-  var memory = { lastTitle: "", lastAuthor: "", lastTopic: "", lastKind: "", history: [] };
+  var memory = { lastTitle: "", lastAuthor: "", lastTopic: "", lastKind: "", history: [], lastCandidates: [] };
   function bubble(who, text){
     var d = document.createElement("div");
     d.className = "b "+(who==="me"?"me":"ai");
@@ -489,6 +511,10 @@
     if(!title) title = cleanQuery(raw);
     return { title: title, author: author };
   }
+  function stripAuthorPrefix(m){
+    // "the author Gordon Korman" -> "Gordon Korman" ("the author is X" also handled)
+    return m.replace(/^(the\s+)?author\s+(is\s+)?/i, "").replace(/^(by|written by)\s+/i, "").replace(/^\s+|\s+$/g, "");
+  }
   function isAuthorOnly(msg){
     var m = msg.replace(/^\s+|\s+$/g,"");
     if(/^(by|author|written by|the author is|author is)\s+/i.test(m)) return true;
@@ -510,8 +536,16 @@
     var titleQ = hints.title || "";
     var authorQ = hints.author || "";
     var raw = msg.replace(/^\s+|\s+$/g,"");
+    // numeric reply picks from the last candidate list we offered
+    if(memory.lastCandidates && memory.lastCandidates.length && /^\d{1,2}$/.test(raw)){
+      var pick = memory.lastCandidates[parseInt(raw, 10) - 1];
+      if(pick){
+        return { titleQ: pick.title, authorQ: pick.authors || "", kind: "book",
+                 note: "Using your pick: \u201c"+pick.title+"\u201d", candidate: pick };
+      }
+    }
     if(isAuthorOnly(raw) && memory.lastTitle){
-      var a = authorQ || raw.replace(/^(by|author|written by|the author is|author is)\s+/i,"").replace(/^\s+|\s+$/g,"");
+      var a = authorQ || stripAuthorPrefix(raw);
       return { titleQ: memory.lastTitle, authorQ: a, kind: "book", note: "Using \""+memory.lastTitle+"\" + author "+a };
     }
     if(isCorrection(raw) && memory.lastTitle){
@@ -529,6 +563,9 @@
     return { titleQ: titleQ, authorQ: authorQ, kind: kind, note: "" };
   }
   function rememberResult(title, author, kind){
+    // keep the REQUESTED title in memory.lastTitle: an author correction
+    // like "the author Gordon Korman" must re-search the book the student
+    // asked about, not whatever was last displayed.
     if(title){ memory.lastTitle = title; memory.lastTopic = title; }
     if(author) memory.lastAuthor = author;
     if(kind) memory.lastKind = kind;
@@ -602,7 +639,7 @@
     bubble("me", msg); input.value = ""; $("learn-btn").disabled = true; startLive();
     var resolved = resolveQuery(msg);
     var titleQ = resolved.titleQ; var authorQ = resolved.authorQ;
-    if(titleQ && !resolved.note){
+    if(titleQ && !resolved.note && !resolved.candidate){
       memory.lastTitle = titleQ; memory.lastTopic = titleQ;
       if(authorQ) memory.lastAuthor = authorQ;
       memory.lastKind = resolved.kind || "topic";
@@ -653,16 +690,19 @@
           var bt = (books[0].title||"").toLowerCase();
           var tq = (titleQ||"").toLowerCase();
           if(bt !== tq && bt.indexOf(tq) === -1 && tq.indexOf(bt) === -1){
-            books = books.slice(0, 3);
+            var cand = books.slice(0, 3);
+            memory.lastCandidates = cand;
             endLive(); $("learn-btn").disabled = false; input.focus();
-            var picks = books.map(function(b, bi){
+            var picks = cand.map(function(b, bi){
               return (bi+1)+". \u201c"+b.title+"\u201d by "+(b.authors||"?")+(b.year?" ("+b.year+")":"");
             });
-            bubbleResult("I found some books, but none is an exact match for \u201c"+esc(titleQ)+"\u201d.<br/><br/>Pick one (send the number), or send: <b>the author [name]</b> to narrow it down.<br/><br/>"+picks.join("<br/>"), "Pick: \n"+picks.join("\n"), startedAt);
-            rememberResult("", "", "");
+            bubbleResult("I found some books, but none is an exact match for \u201c"+esc(titleQ)+"\u201d.<br/><br/>Pick one (send 1, 2, or 3), or send: <b>the author [name]</b> to narrow it down.<br/><br/>"+picks.join("<br/>"), "Pick: \n"+picks.join("\n"), startedAt);
+            // keep the requested title so an author correction re-searches it
+            if(!memory.lastTitle) memory.lastTitle = titleQ;
             return;
           }
         }
+        memory.lastCandidates = [];
         return { books: books, wikiTitles: wikiTitles, earlyReturn: true };
       })
       .then(function(pack){

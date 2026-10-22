@@ -1,0 +1,24 @@
+{
+  "experiment": "numpy_smoke_v2",
+  "what_was_trained": "1-block decoder-only Transformer, 24-dim, next-character prediction",
+  "parameters": 13464,
+  "tokenizer_report": {
+    "cases": 12,
+    "failures": [],
+    "ok": true,
+    "vocab_size": 97
+  },
+  "gradcheck_worst_relative_error": 1.8741130130052993e-07,
+  "gradcheck_conditions": "randomized non-unit layernorm gamma",
+  "next_token_alignment_check": true,
+  "val_loss_before": 5.9849674468560705,
+  "val_loss_after": 3.1479810453142067,
+  "test_loss_before": 6.082983672820234,
+  "test_loss_after": 3.2027119313587438,
+  "reload_determinism": true,
+  "resume_training_ok": true,
+  "training_seconds": 1.8,
+  "sample_before": "The student `|lAZq\n|lV*(7K,`~dYt\n/C\n!Bjm|M?(%,o6C\nLG7t|qcY5BAyNY,Kd6bPzmvX|.J(6,|0b@{l$ctk\n/",
+  "sample_after": "The student orhant re ce in yorurad an wored in las irhowo methin oar.",
+  "honest_assessment": "The from-scratch pipeline is verified end to end: correct next-token alignment, hand-derived gradients matching finite differences with non-unit layernorm scales, deterministic checkpoint reload, and resumable training. Held-out loss decreased. HOWEVER: this model is tiny (10,968 parameters, ~2.5 KB corpus) and its samples are NOT fluent English. It has not learned English in any meaningful sense; it has only learned coarse character statistics of a tiny corpus. A useful school assistant requires orders of magnitude more data and parameters, which this CPU-only environment cannot train."
+}
