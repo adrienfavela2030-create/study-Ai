@@ -3,6 +3,7 @@ fastapi>=0.110
 uvicorn>=0.29
 pydantic>=2.0
 requests>=2.31
+python-multipart>=0.0.9
 
 # Training (scale-up pipeline; the NumPy smoke experiment needs none of these)
 torch>=2.1
